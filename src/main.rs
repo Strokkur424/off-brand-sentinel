@@ -1,12 +1,7 @@
-use poise::serenity_prelude::{
-    CacheHttp, CreateComponent, CreateContainer, CreateContainerComponent, CreateSection,
-    CreateSectionAccessory, CreateSectionComponent, CreateTextDisplay, CreateThumbnail,
-    CreateUnfurledMediaItem, EventHandler, FullEvent,
-};
+use poise::serenity_prelude::{CacheHttp, CreateEmbed, EventHandler, FullEvent};
 use poise::{Framework, FrameworkOptions};
 use poise::{async_trait, serenity_prelude as serenity};
 use serenity::GatewayIntents;
-use serenity::all::MessageFlags;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -17,6 +12,10 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 struct Data {}
 
 static TIMESTAMP_BOOT: OnceLock<SystemTime> = OnceLock::new();
+
+const GIT_HASH: &str = env!("GIT_HASH");
+const GIT_BRANCH: &str = env!("GIT_BRANCH");
+const BUILD_TIME_SEC: &str = env!("BUILD_TIME_SEC");
 
 #[tokio::main]
 async fn main() {
@@ -50,33 +49,19 @@ async fn about(ctx: Context<'_>) -> Result<(), Error> {
         .unwrap()
         .duration_since(UNIX_EPOCH)?
         .as_secs();
-    let content = format!(
-        "### Sentinel
-**Version**
-`0000` on `main`
-
-**Build Time**
-Now
-
-**Boot Time**
-<t:{timestamp_millis}:R>"
-    );
 
     let url = "https://images-ext-1.discordapp.net/external/gqSkvZeXtYgqXI46ZxZIoZCgoQ4l0n79UhJqcmrBuLE/https/cdn.discordapp.com/avatars/1093034213999132743/4c1bb03fa385a3773c8c4c196b9c8fad.png?format=webp&quality=lossless";
-    let section = CreateSection::new(
-        vec![CreateSectionComponent::TextDisplay(CreateTextDisplay::new(
-            content,
-        ))],
-        CreateSectionAccessory::Thumbnail(CreateThumbnail::new(CreateUnfurledMediaItem::new(url))),
-    );
 
     ctx.send(
-        poise::CreateReply::default()
-            .flags(MessageFlags::IS_COMPONENTS_V2)
-            .components(vec![CreateComponent::Container(
-                CreateContainer::new(vec![CreateContainerComponent::Section(section)])
-                    .accent_color(0xFFAA00),
-            )]),
+        poise::CreateReply::default().embed(
+            CreateEmbed::new()
+                .color(0xEB4968)
+                .title("Sentinel (Off Brand)")
+                .thumbnail(url)
+                .field("Version", format!("`{GIT_HASH}` on `{GIT_BRANCH}`"), false)
+                .field("Build Time", format!("<t:{BUILD_TIME_SEC}:F>"), false)
+                .field("Boot Time", format!("<t:{timestamp_millis}:R>"), false),
+        ),
     )
     .await?;
     Ok(())
