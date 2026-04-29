@@ -1,21 +1,14 @@
-use poise::serenity_prelude::{CacheHttp, CreateEmbed, EventHandler, FullEvent};
+mod commands;
+
+use poise::serenity_prelude::{CacheHttp, EventHandler, FullEvent};
 use poise::{Framework, FrameworkOptions};
 use poise::{async_trait, serenity_prelude as serenity};
 use serenity::GatewayIntents;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
-use std::time::{SystemTime, UNIX_EPOCH};
-
-type Error = Box<dyn std::error::Error + Send + Sync>;
-type Context<'a> = poise::Context<'a, Data, Error>;
-
-struct Data {}
+use std::time::SystemTime;
 
 static TIMESTAMP_BOOT: OnceLock<SystemTime> = OnceLock::new();
-
-const GIT_HASH: &str = env!("GIT_HASH");
-const GIT_BRANCH: &str = env!("GIT_BRANCH");
-const BUILD_TIME_SEC: &str = env!("BUILD_TIME_SEC");
 
 #[tokio::main]
 async fn main() {
@@ -26,7 +19,7 @@ async fn main() {
 
     let framework = Framework::builder()
         .options(FrameworkOptions {
-            commands: vec![about()],
+            commands: commands::get_commands(),
             ..Default::default()
         })
         .build();
@@ -40,31 +33,6 @@ async fn main() {
 
     TIMESTAMP_BOOT.set(SystemTime::now()).ok();
     client.unwrap().start().await.unwrap();
-}
-
-#[poise::command(slash_command)]
-async fn about(ctx: Context<'_>) -> Result<(), Error> {
-    let timestamp_millis = TIMESTAMP_BOOT
-        .get()
-        .unwrap()
-        .duration_since(UNIX_EPOCH)?
-        .as_secs();
-
-    let url = "https://images-ext-1.discordapp.net/external/gqSkvZeXtYgqXI46ZxZIoZCgoQ4l0n79UhJqcmrBuLE/https/cdn.discordapp.com/avatars/1093034213999132743/4c1bb03fa385a3773c8c4c196b9c8fad.png?format=webp&quality=lossless";
-
-    ctx.send(
-        poise::CreateReply::default().embed(
-            CreateEmbed::new()
-                .color(0xEB4968)
-                .title("Sentinel (Off Brand)")
-                .thumbnail(url)
-                .field("Version", format!("`{GIT_HASH}` on `{GIT_BRANCH}`"), false)
-                .field("Build Time", format!("<t:{BUILD_TIME_SEC}:F>"), false)
-                .field("Boot Time", format!("<t:{timestamp_millis}:R>"), false),
-        ),
-    )
-    .await?;
-    Ok(())
 }
 
 struct SentinelEventHandler {
@@ -84,7 +52,12 @@ impl EventHandler for SentinelEventHandler {
                         .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
                         .is_ok()
                     {
-                        match poise::builtins::register_globally(ctx.http(), &vec![about()]).await {
+                        match poise::builtins::register_globally(
+                            ctx.http(),
+                            &commands::get_commands(),
+                        )
+                        .await
+                        {
                             Ok(()) => println!("Successfully registered commands."),
                             Err(error) => println!("Failed to register commands: {error:?}"),
                         }
