@@ -1,4 +1,6 @@
 mod commands;
+mod database;
+mod wrapper;
 
 use poise::serenity_prelude::{CacheHttp, EventHandler, FullEvent};
 use poise::{Framework, FrameworkOptions};
@@ -12,60 +14,52 @@ static TIMESTAMP_BOOT: OnceLock<SystemTime> = OnceLock::new();
 
 #[tokio::main]
 async fn main() {
-    let token = serenity::Token::from_env("BOT_TOKEN").expect(
-        "No bot token provided. Please ensure the environment variable `BOT_TOKEN` is set.",
-    );
-    let intents = GatewayIntents::non_privileged();
+  if let Err(msg) = database::setup_database() {
+    eprintln!("Failed to setup database: {msg}");
+    return;
+  }
 
-    let framework = Framework::builder()
-        .options(FrameworkOptions {
-            commands: commands::get_commands(),
-            ..Default::default()
-        })
-        .build();
+  let token = serenity::Token::from_env("BOT_TOKEN").expect("No bot token provided. Please ensure the environment variable `BOT_TOKEN` is set.");
+  let intents = GatewayIntents::non_privileged();
 
-    let client = serenity::ClientBuilder::new(token, intents)
-        .framework(Box::new(framework))
-        .event_handler(Arc::new(SentinelEventHandler {
-            has_registered_commands: AtomicBool::new(false),
-        }))
-        .await;
+  let framework = Framework::builder()
+    .options(FrameworkOptions {
+      commands: commands::get_commands(),
+      ..Default::default()
+    })
+    .build();
 
-    TIMESTAMP_BOOT.set(SystemTime::now()).ok();
-    client.unwrap().start().await.unwrap();
+  let client = serenity::ClientBuilder::new(token, intents)
+    .framework(Box::new(framework))
+    .event_handler(Arc::new(SentinelEventHandler {
+      has_registered_commands: AtomicBool::new(false),
+    }))
+    .await;
+
+  TIMESTAMP_BOOT.set(SystemTime::now()).ok();
+  client.unwrap().start().await.unwrap();
 }
 
 struct SentinelEventHandler {
-    has_registered_commands: AtomicBool,
+  has_registered_commands: AtomicBool,
 }
 
 #[async_trait]
 impl EventHandler for SentinelEventHandler {
-    async fn dispatch(&self, ctx: &serenity::Context, event: &FullEvent) {
-        match event {
-            FullEvent::Ready {
-                data_about_bot: _, ..
-            } => {
-                async {
-                    if self
-                        .has_registered_commands
-                        .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
-                        .is_ok()
-                    {
-                        match poise::builtins::register_globally(
-                            ctx.http(),
-                            &commands::get_commands(),
-                        )
-                        .await
-                        {
-                            Ok(()) => println!("Successfully registered commands."),
-                            Err(error) => println!("Failed to register commands: {error:?}"),
-                        }
-                    }
-                }
-                .await
+  async fn dispatch(&self, ctx: &serenity::Context, event: &FullEvent) {
+    match event {
+      FullEvent::Ready { data_about_bot: _, .. } => {
+        async {
+          if self.has_registered_commands.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok() {
+            match poise::builtins::register_globally(ctx.http(), &commands::get_commands()).await {
+              Ok(()) => println!("Successfully registered commands."),
+              Err(error) => println!("Failed to register commands: {error:?}"),
             }
-            _ => {}
+          }
         }
+        .await
+      }
+      _ => {}
     }
+  }
 }

@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 poise = { git = "https://github.com/serenity-rs/poise", branch = "serenity-next" }
 tokio = { version = "1.52.1", features = ["full"] }
+uuid = { version = "1.23.1", features = ["v4"] }
+rusqlite = { version = "0.39.0", features = ["bundled", "i128_blob", "uuid"] }
