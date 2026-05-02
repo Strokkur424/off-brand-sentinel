@@ -1,7 +1,7 @@
-use crate::WORKING_DIRECTORY;
 use crate::commands::Error;
 use crate::wrapper::UserIdWrapper;
-use rusqlite::{params, Connection, ParamsFromIter, Row};
+use crate::WORKING_DIRECTORY;
+use rusqlite::{params, Connection, Row};
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
@@ -196,11 +196,7 @@ pub fn stale_punishment(punishment_id: Uuid, reason: Option<String>) -> Result<O
 
   let conn = get_connection()?;
   let mut prepared = conn.prepare(UPDATE)?;
-  prepared.execute((
-    reason,
-    unix_time as u32,
-    punishment_id
-  ))?;
+  prepared.execute((reason, unix_time as u32, punishment_id))?;
 
   fetch_single_punishment(punishment_id)
 }

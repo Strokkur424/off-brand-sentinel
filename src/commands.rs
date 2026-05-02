@@ -9,7 +9,6 @@ use poise::serenity_prelude::{
 };
 use poise::CreateReply;
 use punishments::send_messages;
-use std::borrow::Cow;
 use std::time::UNIX_EPOCH;
 use uuid::Uuid;
 

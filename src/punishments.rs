@@ -1,9 +1,12 @@
 use crate::commands::{Context, Error};
 use crate::database::{Punishment, PunishmentType};
 use crate::wrapper::UserIdWrapper;
-use poise::CreateReply;
 use poise::serenity_prelude::small_fixed_array::FixedString;
-use poise::serenity_prelude::{CreateAllowedMentions, CreateComponent, CreateContainer, CreateContainerComponent, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, CreateTextDisplay, MessageFlags, User};
+use poise::serenity_prelude::{
+  CreateAllowedMentions, CreateComponent, CreateContainer, CreateContainerComponent, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, CreateTextDisplay,
+  MessageFlags, User,
+};
+use poise::CreateReply;
 
 pub struct PunishmentDisplay<'a> {
   pub display: &'a str,
@@ -109,9 +112,14 @@ pub fn get_messages<'a>(ctx: &Context<'_>, punishment: &Punishment, member: &Use
 
 pub async fn send_messages(ctx: &Context<'_>, punishment: &Punishment, member: &User) -> Result<(), Error> {
   let (components, dm_message) = get_messages(&ctx, &punishment, &member)?;
-  ctx.send(CreateReply::new().flags(MessageFlags::IS_COMPONENTS_V2)
-    .allowed_mentions(CreateAllowedMentions::default().empty_roles().empty_users())
-    .components(vec![components])).await?;
+  ctx
+    .send(
+      CreateReply::new()
+        .flags(MessageFlags::IS_COMPONENTS_V2)
+        .allowed_mentions(CreateAllowedMentions::default().empty_roles().empty_users())
+        .components(vec![components]),
+    )
+    .await?;
 
   if let Ok(msg) = dm_message.ok_or_else(|| "not present") {
     if let Ok(channel) = member.create_dm_channel(ctx.http()).await {
