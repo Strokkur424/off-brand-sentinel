@@ -80,4 +80,12 @@ These are accessible when you right-click a user's message `Apps > Sentinel`.
 
 ## Building
 
-*...soon.*
+In order to compile this project, you need to install Rust. For this, follow the instructions on [this page](https://rust-lang.org/tools/install/).
+
+Once Rust is installed, compiling the project is as simple as running the following command:
+```bash
+cargo build --build --locked --manifest-path=sentinel-app/Cargo.toml
+```
+
+You can find the build executable under `target/release/sentinel-app(.exe)`.
+
