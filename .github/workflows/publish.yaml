@@ -3,6 +3,7 @@ name: Release
 on:
   release:
     types: [ published ]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,16 +16,19 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: sentinel-linux
             asset_name: sentinel-x86_64-unknown-linux-gnu
+            rename_command: |
+              mv target/release/sentinel-app target/release/sentinel-x86_64-unknown-linux-gnu
 
           - os: macos-latest
-            artifact_name: sentinel-mac
             asset_name: sentinel-x86_64-apple-darwin
+            rename_command: |
+              mv target/release/sentinel-app target/release/sentinel-x86_64-apple-darwin
 
           - os: windows-latest
-            artifact_name: sentinel.exe
-            asset_name: sentinel-x86_64-pc-windows-msvc.exe
+            rename_command: |
+              cd target/release
+              ren "sentinel-app.exe" "sentinel-x86_64-pc-windows-msvc.exe"
 
     steps:
       - name: Checkout code
@@ -33,13 +37,27 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Configure Build Cache
+        uses: Swatinem/rust-cache@v2
+
       - name: Build release
         run: cargo build --release --locked --manifest-path=sentinel-app/Cargo.toml
+
+      - name: Configure artifact
+        id: configure
+        shell: bash
+        run: |
+          suffix=${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+    
+          raw_file="sentinel-${{ runner.arch }}-${{ matrix.os }}${suffix}"
+          file_lower=$(echo "$raw_file" | tr '[:upper:]' '[:lower:]')
+          echo "file_name=${file_lower}" >> $GITHUB_ENV
+
+          mv target/release/sentinel-app${suffix} target/release/${file_lower}
 
       - name: Upload binary to release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            ${{ matrix.os == 'windows-latest' && 'target/release/sentinel-app.exe' || 'target/release/sentinel-app' }}
+          files: target/release/${{ env.file_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
