@@ -356,7 +356,7 @@ async fn construct_show_component(ctx: Context<'_>, punishment: &Punishment) -> 
   fields.push(format!("**Type**: {}", display.display));
   fields.push(format!("**Stale**: {}", bool_to_emoji(punishment.stale)));
   if let Some(stale_time) = punishment.stale_time_sec {
-    fields.push(format!("**Stale Time**: {}", stale_time));
+    fields.push(format!("**Stale Time**: <t:{}:F>", stale_time));
   }
   if let Some(stale_reason) = punishment.stale_reason.clone() {
     fields.push(format!("**Stale Reason**: {}", stale_reason));

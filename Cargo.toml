@@ -1,12 +1,16 @@
-[package]
+[workspace]
+members = ["sentinel-app", "sentinel-bot"]
 name = "off-brand-sentinel"
+resolver = "2"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
+[workspace.dependencies]
 poise = { git = "https://github.com/serenity-rs/poise", branch = "serenity-next" }
 tokio = { version = "1.52.1", features = ["full"] }
 uuid = { version = "1.23.1", features = ["v4"] }
 rusqlite = { version = "0.39.0", features = ["bundled", "i128_blob", "uuid"] }
 toml = "1.1.2+spec-1.1.0"
 serde = { version = "1.0.228", features = ["derive"] }
+
+sentinel-bot = { path = "sentinel-bot" }

@@ -1,0 +1,14 @@
+[package]
+name = "sentinel-bot"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+poise = { workspace = true }
+uuid = { workspace = true }
+rusqlite = { workspace = true }
+toml = { workspace = true }
+serde = { workspace = true }
+
+[lib]
+name = "sentinel_bot"

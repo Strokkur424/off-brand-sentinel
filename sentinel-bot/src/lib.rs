@@ -1,3 +1,11 @@
+use crate::config::Configuration;
+use poise::futures_util::future::join_all;
+use poise::serenity_prelude::{CacheHttp, EventHandler, FullEvent, GatewayIntents};
+use poise::{async_trait, serenity_prelude as serenity, Framework, FrameworkOptions};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, OnceLock};
+use std::time::SystemTime;
+
 mod commands;
 mod config;
 mod database;
@@ -5,27 +13,12 @@ mod modals;
 mod punishments;
 mod wrapper;
 
-use crate::config::Configuration;
-use poise::futures_util::future::join_all;
-use poise::serenity_prelude::{CacheHttp, EventHandler, FullEvent};
-use poise::{async_trait, serenity_prelude as serenity};
-use poise::{Framework, FrameworkOptions};
-use serenity::GatewayIntents;
-use std::env;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, OnceLock};
-use std::time::SystemTime;
-
 static TIMESTAMP_BOOT: OnceLock<SystemTime> = OnceLock::new();
 pub(crate) static WORKING_DIRECTORY: OnceLock<String> = OnceLock::new();
 pub(crate) static CONFIG: OnceLock<Configuration> = OnceLock::new();
 
-#[tokio::main]
-async fn main() {
-  let mut args = env::args();
-  let _ = args.next();
-
-  let working_dir = args.next().unwrap_or_else(|| String::from("./"));
+pub async fn run(working_dir: Option<String>) {
+  let working_dir = working_dir.unwrap_or("./".to_string());
   WORKING_DIRECTORY.set(working_dir.clone()).expect("This shouldn't happen (SET WORKING DIR)");
 
   if let Err(msg) = database::setup_database() {

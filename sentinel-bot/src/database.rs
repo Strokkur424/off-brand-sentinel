@@ -230,7 +230,6 @@ pub fn fetch_single_punishment(punishment_id: Uuid) -> Result<Option<Punishment>
   let mut prepared = conn.prepare(SELECT)?;
   let mut rows = prepared.query(params![punishment_id])?;
 
-  println!("Checking: {}", punishment_id);
   if let Some(row) = rows.next()? {
     return Ok(Some(convert_to_struct(row)));
   }
