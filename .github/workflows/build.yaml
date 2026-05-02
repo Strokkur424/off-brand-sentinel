@@ -33,4 +33,4 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build debug
-        run: cargo build --debug --locked
+        run: cargo build --locked
