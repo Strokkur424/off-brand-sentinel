@@ -1,0 +1,36 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  build-debug:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: sentinel-linux
+            asset_name: sentinel-x86_64-unknown-linux-gnu
+
+          - os: macos-latest
+            artifact_name: sentinel-mac
+            asset_name: sentinel-x86_64-apple-darwin
+
+          - os: windows-latest
+            artifact_name: sentinel.exe
+            asset_name: sentinel-x86_64-pc-windows-msvc.exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build debug
+        run: cargo build --debug --locked
