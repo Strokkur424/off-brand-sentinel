@@ -1,9 +1,8 @@
-use crate::TIMESTAMP_BOOT;
 use crate::database::{Duration, PunishmentType};
-use poise::CreateReply;
-use poise::serenity_prelude::{CreateComponent, CreateContainer, CreateContainerComponent, CreateEmbed, CreateTextDisplay, Member, MessageFlags, Timestamp};
-use std::time::{SystemTime, UNIX_EPOCH};
 use crate::wrapper::UserIdWrapper;
+use crate::{TIMESTAMP_BOOT, messages};
+use poise::serenity_prelude::{CreateEmbed, Member, Timestamp};
+use std::time::UNIX_EPOCH;
 
 pub struct Data {}
 
@@ -39,15 +38,15 @@ impl DurationChoices {
   }
 }
 
-type Error = Box<dyn std::error::Error + Send + Sync>;
-type Context<'a> = poise::Context<'a, Data, Error>;
+pub type Error = Box<dyn std::error::Error + Send + Sync>;
+pub type Context<'a> = poise::Context<'a, Data, Error>;
 
 const GIT_HASH: &str = env!("GIT_HASH");
 const GIT_BRANCH: &str = env!("GIT_BRANCH");
 const BUILD_TIME_SEC: &str = env!("BUILD_TIME_SEC");
 
 pub fn get_commands() -> Vec<poise::Command<Data, Error>> {
-  vec![about(), timeout()]
+  vec![about(), timeout(), ban()]
 }
 
 #[poise::command(slash_command)]
@@ -81,31 +80,44 @@ async fn timeout(
   #[description = "The duration"] duration: DurationChoices,
 ) -> Result<(), Error> {
   let dur = duration.to_duration();
-  let timestamp_unix = (SystemTime::now() + dur.std_duration).duration_since(UNIX_EPOCH)?.as_secs();
+  let timestamp_unix = dur.to_unix_time_from_now();
 
   let punishment = crate::database::insert_punishment(
     UserIdWrapper(member.user.id.get()),
     UserIdWrapper(ctx.author().id.get()),
     PunishmentType::TIMEOUT,
-    Some(dur.clone()),
-    Some(reason.clone()),
+    Some(dur),
+    Some(reason),
   )?;
   member
     .disable_communication_until(ctx.http(), Timestamp::from_unix_timestamp(timestamp_unix as i64)?)
     .await?;
 
-  ctx
-    .send(CreateReply::new().flags(MessageFlags::IS_COMPONENTS_V2).components(vec![CreateComponent::Container(
-      CreateContainer::new(vec![
-        CreateContainerComponent::TextDisplay(CreateTextDisplay::new(format!("### Punishment {}", punishment.punishment_id.as_simple()))),
-        CreateContainerComponent::TextDisplay(CreateTextDisplay::new("**Type**: <:dot_purple:1499540059672805546> timeout")),
-        CreateContainerComponent::TextDisplay(CreateTextDisplay::new(format!("**Issued to**: <@{}> (`@{}` / `{}`)", member.user.id.get(), member.user.name, member.user.id.get()))),
-        CreateContainerComponent::TextDisplay(CreateTextDisplay::new(format!("**Reason**: {}", reason))),
-        CreateContainerComponent::TextDisplay(CreateTextDisplay::new(format!("**Duration**: ~{} (expiry: <t:{}:F>", dur.display, timestamp_unix))),
-      ])
-        .accent_colour(0x9A59B4),
-    )]))
-    .await?;
+  messages::send_messages(&ctx, &punishment, &member).await?;
+  Ok(())
+}
 
+#[poise::command(slash_command, guild_only, required_permissions = "BAN_MEMBERS")]
+async fn ban(
+  ctx: Context<'_>,
+  #[description = "The member to ban"] member: Member,
+  #[description = "The reason for banning the member"] reason: Option<String>,
+  #[description = "If recent messages should be deleted - defaults to true"] delete_messages: Option<bool>,
+) -> Result<(), Error> {
+  let punishment = crate::database::insert_punishment(
+    UserIdWrapper(member.user.id.get()),
+    UserIdWrapper(ctx.author().id.get()),
+    PunishmentType::BAN,
+    None,
+    reason.clone(),
+  )?;
+  let delete_seconds = if delete_messages.unwrap_or(true) {
+    std::time::Duration::from_hours(1).as_secs()
+  } else {
+    0
+  };
+
+  messages::send_messages(&ctx, &punishment, &member).await?;
+  member.ban(ctx.http(), delete_seconds as u32, reason.as_deref()).await?;
   Ok(())
 }

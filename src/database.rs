@@ -17,11 +17,13 @@ pub struct Punishment {
   pub reason: Option<String>,
 }
 
+#[derive(PartialEq)]
 pub enum PunishmentType {
   KICK,
   WARN,
   BAN,
   TIMEOUT,
+  NOTE
 }
 
 impl PunishmentType {
@@ -31,6 +33,7 @@ impl PunishmentType {
       PunishmentType::WARN => 1,
       PunishmentType::BAN => 2,
       PunishmentType::TIMEOUT => 3,
+      PunishmentType::NOTE => 4,
     }
   }
 
@@ -40,6 +43,7 @@ impl PunishmentType {
       1 => PunishmentType::WARN,
       2 => PunishmentType::BAN,
       3 => PunishmentType::TIMEOUT,
+      4 => PunishmentType::NOTE,
       _ => panic!("Unknown punishment type index: {index}"),
     }
   }
@@ -57,6 +61,12 @@ impl Duration {
       display: String::from(display),
       std_duration,
     }
+  }
+
+  pub fn to_unix_time_from_now(&self) -> u64 {
+    (SystemTime::now() + self.std_duration)
+      .duration_since(UNIX_EPOCH)
+      .unwrap().as_secs()
   }
 }
 

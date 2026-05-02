@@ -1,5 +1,6 @@
 mod commands;
 mod database;
+mod messages;
 mod wrapper;
 
 use poise::serenity_prelude::{CacheHttp, EventHandler, FullEvent};
