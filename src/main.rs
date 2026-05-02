@@ -1,28 +1,63 @@
 mod commands;
+mod config;
 mod database;
+mod modals;
 mod punishments;
 mod wrapper;
-mod modals;
 
+use poise::futures_util::future::join_all;
 use poise::serenity_prelude::{CacheHttp, EventHandler, FullEvent};
-use poise::{Framework, FrameworkOptions};
 use poise::{async_trait, serenity_prelude as serenity};
+use poise::{Framework, FrameworkOptions};
 use serenity::GatewayIntents;
+use std::env;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::SystemTime;
 
 static TIMESTAMP_BOOT: OnceLock<SystemTime> = OnceLock::new();
+pub static WORKING_DIRECTORY: OnceLock<String> = OnceLock::new();
 
 #[tokio::main]
 async fn main() {
+  let mut args = env::args();
+  let _ = args.next();
+
+  let working_dir = args.next().unwrap_or_else(|| String::from("./"));
+  WORKING_DIRECTORY.set(working_dir.clone()).expect("This shouldn't happen (SET WORKING DIR)");
+
   if let Err(msg) = database::setup_database() {
     eprintln!("Failed to setup database: {msg}");
     return;
   }
 
-  let token = serenity::Token::from_env("BOT_TOKEN").expect("No bot token provided. Please ensure the environment variable `BOT_TOKEN` is set.");
-  let intents = GatewayIntents::non_privileged();
+  let config = config::load_config(working_dir.as_str());
+  if let Err(msg) = config {
+    eprintln!("Failed to load config: {msg}");
+    return;
+  }
+  let config = config.unwrap();
+
+  let mut tasks = Vec::new();
+
+  if !config.tokens.sentinel.is_empty() {
+    println!("Starting Sentinel.");
+    tasks.push(init_sentinel(&config.tokens.sentinel));
+  } else {
+    println!("Did not start Sentinel bot: No token provided.");
+  }
+
+  if !config.tokens.factoids.is_empty() {
+    println!("Starting Factoids (noop).");
+  } else {
+    println!("Did not start Factoids bot: No token provided.")
+  }
+
+  join_all(tasks).await;
+}
+
+async fn init_sentinel(token: &String) -> Result<(), &str> {
+  let token = token.as_str().parse().map_err(|_| "Invalid token defined for sentinel.")?;
 
   let framework = Framework::builder()
     .options(FrameworkOptions {
@@ -30,6 +65,7 @@ async fn main() {
       ..Default::default()
     })
     .build();
+  let intents = GatewayIntents::non_privileged();
 
   let client = serenity::ClientBuilder::new(token, intents)
     .framework(Box::new(framework))
@@ -40,6 +76,8 @@ async fn main() {
 
   TIMESTAMP_BOOT.set(SystemTime::now()).ok();
   client.unwrap().start().await.unwrap();
+
+  Ok(())
 }
 
 struct SentinelEventHandler {

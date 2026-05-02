@@ -1,4 +1,5 @@
 use crate::wrapper::UserIdWrapper;
+use crate::WORKING_DIRECTORY;
 use rusqlite::{Connection, Row};
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -23,7 +24,7 @@ pub enum PunishmentType {
   WARN,
   BAN,
   TIMEOUT,
-  NOTE
+  NOTE,
 }
 
 impl PunishmentType {
@@ -64,9 +65,7 @@ impl Duration {
   }
 
   pub fn to_unix_time_from_now(&self) -> u64 {
-    (SystemTime::now() + self.std_duration)
-      .duration_since(UNIX_EPOCH)
-      .unwrap().as_secs()
+    (SystemTime::now() + self.std_duration).duration_since(UNIX_EPOCH).unwrap().as_secs()
   }
 }
 
@@ -82,7 +81,7 @@ impl Clone for Duration {
 
 //<editor-fold desc="Internal Utility">
 fn get_connection() -> Result<Connection, String> {
-  let dir: String = std::env::var("SENTINEL_WORKING_DIR").unwrap_or_else(|_| String::from("./"));
+  let dir: &String = WORKING_DIRECTORY.get().expect("This should not happen (GET WORKING DIR)");
   fs::create_dir_all(&dir).map_err(|e| format!("Failed to create directories for {dir}: {e}"))?;
 
   let path = format!("{dir}database.sqlite");
@@ -155,9 +154,6 @@ fn convert_to_struct(row: &Row) -> Punishment {
     })
   };
 
-  let reason_str: String = row.get_unwrap("reason");
-  let reason = if reason_str.is_empty() { None } else { Some(reason_str) };
-
   Punishment {
     punishment_id: row.get_unwrap("id"),
     issued_to: row.get_unwrap("issued_to"),
@@ -167,6 +163,6 @@ fn convert_to_struct(row: &Row) -> Punishment {
     stale: row.get_unwrap("stale"),
     permanent: row.get_unwrap("permanent"),
     time_sec: time_sec_i64 as u64,
-    reason,
+    reason: row.get_unwrap("reason"),
   }
 }

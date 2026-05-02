@@ -2,9 +2,7 @@ use crate::commands::{Context, Error};
 use crate::database::{Punishment, PunishmentType};
 use crate::wrapper::UserIdWrapper;
 use poise::serenity_prelude::small_fixed_array::FixedString;
-use poise::serenity_prelude::{
-  CreateComponent, CreateContainer, CreateContainerComponent, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, CreateTextDisplay, Member, MessageFlags,
-};
+use poise::serenity_prelude::{CreateComponent, CreateContainer, CreateContainerComponent, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, CreateTextDisplay, Member, MessageFlags, PartialMember};
 use poise::CreateReply;
 
 struct PunishmentDisplay<'a> {

@@ -1,0 +1,10 @@
+[tokens]
+sentinel = ""
+factoids = ""
+
+[guilds]
+# "<guild_id>" = {
+#   channel-report =
+#   channel-mod-msg =
+#   channel-appeals =
+# }

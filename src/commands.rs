@@ -1,9 +1,9 @@
 use crate::database::{Duration, PunishmentType};
 use crate::punishments::{execute_ban, execute_kick};
 use crate::wrapper::UserIdWrapper;
-use crate::{modals, punishments, TIMESTAMP_BOOT};
-use poise::serenity_prelude::{CreateEmbed, Member, Message, MessageFlags, Timestamp};
+use crate::{TIMESTAMP_BOOT, modals, punishments};
 use poise::CreateReply;
+use poise::serenity_prelude::{CreateEmbed, Member, Message, MessageFlags, Timestamp};
 use punishments::send_messages;
 use std::time::UNIX_EPOCH;
 
