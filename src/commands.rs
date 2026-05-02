@@ -1,7 +1,8 @@
 use crate::database::{Duration, PunishmentType};
 use crate::wrapper::UserIdWrapper;
-use crate::{TIMESTAMP_BOOT, messages};
-use poise::serenity_prelude::{CreateEmbed, Member, Timestamp};
+use crate::{messages, TIMESTAMP_BOOT};
+use poise::serenity_prelude::{CreateEmbed, Member, MessageFlags, Timestamp};
+use poise::CreateReply;
 use std::time::UNIX_EPOCH;
 
 pub struct Data {}
@@ -46,9 +47,10 @@ const GIT_BRANCH: &str = env!("GIT_BRANCH");
 const BUILD_TIME_SEC: &str = env!("BUILD_TIME_SEC");
 
 pub fn get_commands() -> Vec<poise::Command<Data, Error>> {
-  vec![about(), timeout(), ban()]
+  vec![about(), timeout(), ban(), kick(), warn(), note()]
 }
 
+/// Displays information about Sentinel
 #[poise::command(slash_command)]
 async fn about(ctx: Context<'_>) -> Result<(), Error> {
   const THUMBNAIL_URL: &str = "https://images-ext-1.discordapp.net/external/gqSkvZeXtYgqXI46ZxZIoZCgoQ4l0n79UhJqcmrBuLE/\
@@ -72,6 +74,7 @@ async fn about(ctx: Context<'_>) -> Result<(), Error> {
   Ok(())
 }
 
+/// Timeout a member
 #[poise::command(slash_command, guild_only, required_permissions = "MODERATE_MEMBERS")]
 async fn timeout(
   ctx: Context<'_>,
@@ -97,6 +100,7 @@ async fn timeout(
   Ok(())
 }
 
+/// Ban a member
 #[poise::command(slash_command, guild_only, required_permissions = "BAN_MEMBERS")]
 async fn ban(
   ctx: Context<'_>,
@@ -119,5 +123,56 @@ async fn ban(
 
   messages::send_messages(&ctx, &punishment, &member).await?;
   member.ban(ctx.http(), delete_seconds as u32, reason.as_deref()).await?;
+  Ok(())
+}
+
+/// Kick a member
+#[poise::command(slash_command, guild_only, required_permissions = "KICK_MEMBERS")]
+async fn kick(
+  ctx: Context<'_>,
+  #[description = "The member to kick"] member: Member,
+  #[description = "The reason for kicking the member"] reason: Option<String>,
+) -> Result<(), Error> {
+  let punishment = crate::database::insert_punishment(
+    UserIdWrapper(member.user.id.get()),
+    UserIdWrapper(ctx.author().id.get()),
+    PunishmentType::KICK,
+    None,
+    reason.clone(),
+  )?;
+
+  messages::send_messages(&ctx, &punishment, &member).await?;
+  member.kick(ctx.http(), reason.as_deref()).await?;
+  Ok(())
+}
+
+/// Warn a member
+#[poise::command(slash_command, guild_only, required_permissions = "MODERATE_MEMBERS")]
+async fn warn(ctx: Context<'_>, #[description = "The member to warn"] member: Member, #[description = "The reason for warning the member"] reason: String) -> Result<(), Error> {
+  let punishment = crate::database::insert_punishment(
+    UserIdWrapper(member.user.id.get()),
+    UserIdWrapper(ctx.author().id.get()),
+    PunishmentType::WARN,
+    None,
+    Some(reason),
+  )?;
+
+  messages::send_messages(&ctx, &punishment, &member).await?;
+  Ok(())
+}
+
+/// Add a note to a member
+#[poise::command(slash_command, guild_only, required_permissions = "MODERATE_MEMBERS")]
+async fn note(ctx: Context<'_>, #[description = "The member to add a note to"] member: Member, #[description = "The note content"] reason: String) -> Result<(), Error> {
+  let punishment = crate::database::insert_punishment(
+    UserIdWrapper(member.user.id.get()),
+    UserIdWrapper(ctx.author().id.get()),
+    PunishmentType::NOTE,
+    None,
+    Some(reason),
+  )?;
+
+  let (component, _) = messages::get_messages(&ctx, &punishment, &member)?;
+  ctx.send(CreateReply::new().flags(MessageFlags::IS_COMPONENTS_V2).components(vec![component])).await?;
   Ok(())
 }
