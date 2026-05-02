@@ -1,11 +1,17 @@
-use crate::database::{Duration, PunishmentType};
-use crate::punishments::{execute_ban, execute_kick};
+use crate::database::{Duration, PartialPunishment, Punishment, PunishmentType};
+use crate::punishments::{execute_ban, execute_kick, PunishmentDisplay};
 use crate::wrapper::UserIdWrapper;
-use crate::{modals, punishments, CONFIG, TIMESTAMP_BOOT};
-use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, GenericChannelId, Member, Message, MessageFlags, Timestamp};
+use crate::{database, modals, punishments, CONFIG, TIMESTAMP_BOOT};
+use poise::serenity_prelude::{
+  CreateAllowedMentions, CreateComponent, CreateContainer, CreateContainerComponent, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, CreateSection,
+  CreateSectionAccessory, CreateSectionComponent, CreateSeparator, CreateTextDisplay, CreateThumbnail, CreateUnfurledMediaItem, GenericChannelId, Member, Message, MessageFlags,
+  Timestamp, User, UserId,
+};
 use poise::CreateReply;
 use punishments::send_messages;
+use std::borrow::Cow;
 use std::time::UNIX_EPOCH;
+use uuid::Uuid;
 
 pub struct Data {}
 
@@ -61,6 +67,7 @@ pub fn get_commands() -> Vec<poise::Command<Data, Error>> {
     quick_ban_context(),
     report_context(),
     modmail(),
+    punishment(),
   ]
 }
 
@@ -99,7 +106,7 @@ async fn timeout(
   let dur = duration.to_duration();
   let timestamp_unix = dur.to_unix_time_from_now();
 
-  let punishment = crate::database::insert_punishment(
+  let punishment = database::insert_punishment(
     UserIdWrapper(member.user.id.get()),
     UserIdWrapper(ctx.author().id.get()),
     PunishmentType::TIMEOUT,
@@ -140,7 +147,7 @@ async fn kick(
 /// Warn a member
 #[poise::command(slash_command, guild_only, required_permissions = "MODERATE_MEMBERS")]
 async fn warn(ctx: Context<'_>, #[description = "The member to warn"] member: Member, #[description = "The reason for warning the member"] reason: String) -> Result<(), Error> {
-  let punishment = crate::database::insert_punishment(
+  let punishment = database::insert_punishment(
     UserIdWrapper(member.user.id.get()),
     UserIdWrapper(ctx.author().id.get()),
     PunishmentType::WARN,
@@ -155,7 +162,7 @@ async fn warn(ctx: Context<'_>, #[description = "The member to warn"] member: Me
 /// Add a note to a member
 #[poise::command(slash_command, guild_only, required_permissions = "MODERATE_MEMBERS")]
 async fn note(ctx: Context<'_>, #[description = "The member to add a note to"] member: Member, #[description = "The note content"] reason: String) -> Result<(), Error> {
-  let punishment = crate::database::insert_punishment(
+  let punishment = database::insert_punishment(
     UserIdWrapper(member.user.id.get()),
     UserIdWrapper(ctx.author().id.get()),
     PunishmentType::NOTE,
@@ -164,7 +171,14 @@ async fn note(ctx: Context<'_>, #[description = "The member to add a note to"] m
   )?;
 
   let (component, _) = punishments::get_messages(&ctx, &punishment, &member.user)?;
-  ctx.send(CreateReply::new().flags(MessageFlags::IS_COMPONENTS_V2).components(vec![component])).await?;
+  ctx
+    .send(
+      CreateReply::new()
+        .flags(MessageFlags::IS_COMPONENTS_V2)
+        .allowed_mentions(CreateAllowedMentions::default().empty_roles().empty_users())
+        .components(vec![component]),
+    )
+    .await?;
   Ok(())
 }
 
@@ -284,7 +298,13 @@ async fn modmail(ctx: Context<'_>, #[description = "The message to send the mode
           ),
         )
         .await?;
-      ctx.send(CreateReply::new().content("Your modmail was sent successfully. Please wait patiently for a response.").ephemeral(true)).await?;
+      ctx
+        .send(
+          CreateReply::new()
+            .content("Your modmail was sent successfully. Please wait patiently for a response.")
+            .ephemeral(true),
+        )
+        .await?;
       return Ok(());
     }
   }
@@ -296,5 +316,200 @@ async fn modmail(ctx: Context<'_>, #[description = "The message to send the mode
         .ephemeral(true),
     )
     .await?;
+  Ok(())
+}
+
+#[poise::command(
+  slash_command,
+  subcommands("punishment_reason", "punishment_stale", "punishment_show", "punishment_search"),
+  subcommand_required,
+  guild_only,
+  required_permissions = "MODERATE_MEMBERS"
+)]
+async fn punishment(_: Context<'_>) -> Result<(), Error> {
+  Ok(()) // never called
+}
+
+#[poise::command(slash_command, rename = "reason")]
+async fn punishment_reason(ctx: Context<'_>, #[string] punishment: Uuid, reason: String) -> Result<(), Error> {
+  if let Err(e) = database::update_punishment_reason(punishment, reason) {
+    ctx.send(CreateReply::new().content(format!("Something went wrong: {e}")).ephemeral(true)).await?;
+    return Ok(());
+  }
+
+  ctx.reply(format!("Punishment `{}` was successfully updated.", punishment.as_simple())).await?;
+  Ok(())
+}
+
+async fn construct_show_component(ctx: Context<'_>, punishment: &Punishment) -> Result<CreateComponent<'static>, Error> {
+  let display = PunishmentDisplay::from_punishment_type(&punishment.punishment_type);
+
+  fn bool_to_emoji<'a>(val: bool) -> &'a str {
+    if val { "<:yes:1500220801108934786>" } else { "<:no:1500220802841182211>" }
+  }
+
+  let issued_by_name = ctx.http().get_user(UserId::new(punishment.issued_by.0)).await?.name;
+  let issued_to_name = ctx.http().get_user(UserId::new(punishment.issued_to.0)).await?.name;
+
+  let mut fields = Vec::new();
+  fields.push(format!("### Punishment {}", punishment.punishment_id.simple()));
+  fields.push(format!("**Type**: {}", display.display));
+  fields.push(format!("**Stale**: {}", bool_to_emoji(punishment.stale)));
+  if let Some(stale_time) = punishment.stale_time_sec {
+    fields.push(format!("**Stale Time**: {}", stale_time));
+  }
+  if let Some(stale_reason) = punishment.stale_reason.clone() {
+    fields.push(format!("**Stale Reason**: {}", stale_reason));
+  }
+
+  fields.push(format!("**Time**: <t:{}:F>", punishment.time_sec));
+  fields.push(format!(
+    "**Issued by**: <@{}> (`@{}` / `{}`)",
+    punishment.issued_by.0, issued_by_name, punishment.issued_by.0
+  ));
+  fields.push(format!(
+    "**Issued to**: <@{}> (`@{}` / `{}`)",
+    punishment.issued_to.0, issued_to_name, punishment.issued_to.0
+  ));
+  fields.push(format!("**Reason**: {}", punishment.reason.clone().unwrap_or_else(|| String::from("*No reason provided*"))));
+
+  let fields = fields.into_iter().map(|s| CreateContainerComponent::TextDisplay(CreateTextDisplay::new(s)));
+  let fields: Vec<CreateContainerComponent> = fields.collect();
+
+  Ok(CreateComponent::Container(CreateContainer::new(fields).accent_color(display.color)))
+}
+
+async fn ensure_valid_punishment(ctx: Context<'_>, punishment: Result<Option<Punishment>, Error>) -> Result<Punishment, Error> {
+  if let Err(e) = punishment {
+    ctx.send(CreateReply::new().content(format!("Something went wrong: {e}")).ephemeral(true)).await?;
+    return Err(e);
+  }
+  let punishment = punishment?;
+
+  if let None = punishment {
+    ctx.send(CreateReply::new().content("No punishment found.").ephemeral(true)).await?;
+    return Err(Error::from("No punishment."));
+  }
+
+  Ok(punishment.unwrap())
+}
+
+#[poise::command(slash_command, rename = "show")]
+async fn punishment_show(ctx: Context<'_>, #[string] punishment: Uuid) -> Result<(), Error> {
+  let punishment = ensure_valid_punishment(ctx, database::fetch_single_punishment(punishment)).await;
+  if punishment.is_err() {
+    return Ok(());
+  }
+
+  let punishment = punishment?;
+  let component = construct_show_component(ctx, &punishment).await?;
+
+  ctx
+    .send(
+      CreateReply::new()
+        .flags(MessageFlags::IS_COMPONENTS_V2)
+        .allowed_mentions(CreateAllowedMentions::default().empty_roles().empty_users())
+        .components(vec![component]),
+    )
+    .await?;
+  Ok(())
+}
+
+#[poise::command(slash_command, rename = "stale")]
+async fn punishment_stale(ctx: Context<'_>, #[string] punishment: Uuid, reason: Option<String>) -> Result<(), Error> {
+  let punishment = ensure_valid_punishment(ctx, database::stale_punishment(punishment, reason)).await;
+  if punishment.is_err() {
+    return Ok(());
+  }
+
+  let punishment = punishment?;
+  match punishment.punishment_type {
+    PunishmentType::TIMEOUT => {
+      if let Ok(mut member) = ctx.http().get_member(ctx.guild_id().unwrap(), UserId::new(punishment.issued_to.0)).await {
+        member.enable_communication(ctx.http()).await?;
+      }
+    }
+    PunishmentType::BAN => {
+      ctx
+        .http()
+        .remove_ban(ctx.guild_id().unwrap(), UserId::new(punishment.issued_to.0), Some("Punishment stale."))
+        .await?;
+    }
+    _ => {}
+  };
+
+  let component = construct_show_component(ctx, &punishment).await?;
+
+  ctx
+    .send(
+      CreateReply::new()
+        .flags(MessageFlags::IS_COMPONENTS_V2)
+        .allowed_mentions(CreateAllowedMentions::default().empty_roles().empty_users())
+        .components(vec![
+          component,
+          CreateComponent::TextDisplay(CreateTextDisplay::new(format!(
+            "Punishment `{}` was successfully updated.",
+            punishment.punishment_id.simple()
+          ))),
+        ]),
+    )
+    .await?;
+
+  Ok(())
+}
+
+#[poise::command(slash_command, rename = "search", subcommands("punishment_search_user"), subcommand_required)]
+async fn punishment_search(_: Context<'_>) -> Result<(), Error> {
+  Ok(()) // never called
+}
+
+#[poise::command(slash_command, rename = "user")]
+async fn punishment_search_user(ctx: Context<'_>, user: User) -> Result<(), Error> {
+  let entries: Vec<PartialPunishment> = database::fetch_punishments(UserIdWrapper(user.id.get()))?;
+
+  let user_avatar = user
+    .avatar_url()
+    .unwrap_or_else(|| format!("https://cdn.discordapp.com/embed/avatars/{}.png", (user.id.get() >> 22) % 6));
+
+  let top_section = CreateSection::new(
+    vec![CreateSectionComponent::TextDisplay(CreateTextDisplay::new(format!(
+      "## Punishment history for {}",
+      user.name
+    )))],
+    CreateSectionAccessory::Thumbnail(CreateThumbnail::new(CreateUnfurledMediaItem::new(user_avatar))),
+  );
+
+  let mut fields = Vec::new();
+  if entries.is_empty() {
+    fields.push("No results found.".to_string())
+  } else {
+    for entry in entries {
+      let display = PunishmentDisplay::from_punishment_type(&entry.punishment_type);
+      fields.push(format!("{} (`{}`) <t:{}:F>", display.display, entry.punishment_id.simple(), entry.time_sec));
+      if let Some(reason) = entry.reason {
+        fields.push(format!("⟶ `{}`", reason));
+      }
+    }
+  }
+
+  let fields = fields.into_iter().map(|s| CreateContainerComponent::TextDisplay(CreateTextDisplay::new(s)));
+  let fields: Vec<CreateContainerComponent> = fields.collect();
+
+  let mut container_components: Vec<CreateContainerComponent> = Vec::new();
+  container_components.push(CreateContainerComponent::Section(top_section));
+  container_components.push(CreateContainerComponent::Separator(CreateSeparator::new()));
+  for field in fields {
+    container_components.push(field)
+  }
+
+  ctx
+    .send(
+      CreateReply::new()
+        .flags(MessageFlags::IS_COMPONENTS_V2)
+        .allowed_mentions(CreateAllowedMentions::default().empty_roles().empty_users())
+        .components(vec![CreateComponent::Container(CreateContainer::new(container_components))]),
+    )
+    .await?;
+
   Ok(())
 }

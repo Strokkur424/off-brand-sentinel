@@ -1,6 +1,7 @@
-use crate::wrapper::UserIdWrapper;
 use crate::WORKING_DIRECTORY;
-use rusqlite::{Connection, Row};
+use crate::commands::Error;
+use crate::wrapper::UserIdWrapper;
+use rusqlite::{params, Connection, ParamsFromIter, Row};
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
@@ -13,7 +14,15 @@ pub struct Punishment {
   pub punishment_type: PunishmentType,
   pub duration: Option<Duration>,
   pub stale: bool,
-  pub permanent: bool,
+  pub stale_time_sec: Option<u32>,
+  pub stale_reason: Option<String>,
+  pub time_sec: u64,
+  pub reason: Option<String>,
+}
+
+pub struct PartialPunishment {
+  pub punishment_id: Uuid,
+  pub punishment_type: PunishmentType,
   pub time_sec: u64,
   pub reason: Option<String>,
 }
@@ -99,7 +108,8 @@ pub fn setup_database() -> Result<(), String> {
     duration_name   TEXT DEFAULT NULL,
     duration_sec    INTEGER DEFAULT NULL,
     stale           INTEGER NOT NULL DEFAULT 0,
-    permanent       INTEGER NOT NULL DEFAULT 0,
+    stale_time_sec  INTEGER DEFAULT NULL,
+    stale_reason    TEXT DEFAULT NULL,
     time_sec        INTEGER NOT NULL,
     reason          TEXT DEFAULT NULL
 ) STRICT;";
@@ -161,8 +171,73 @@ fn convert_to_struct(row: &Row) -> Punishment {
     punishment_type: PunishmentType::from_index(row.get_unwrap("type")),
     duration,
     stale: row.get_unwrap("stale"),
-    permanent: row.get_unwrap("permanent"),
+    stale_time_sec: row.get_unwrap("stale_time_sec"),
+    stale_reason: row.get_unwrap("stale_reason"),
     time_sec: time_sec_i64 as u64,
     reason: row.get_unwrap("reason"),
   }
+}
+
+pub fn update_punishment_reason(punishment_id: Uuid, reason: String) -> Result<(), Error> {
+  // language=sqlite
+  const UPDATE: &str = "UPDATE punishment SET reason = ?1 WHERE id = ?2;";
+
+  let conn = get_connection()?;
+  let mut prepared = conn.prepare(UPDATE)?;
+  prepared.execute((reason, punishment_id))?;
+  Ok(())
+}
+
+pub fn stale_punishment(punishment_id: Uuid, reason: Option<String>) -> Result<Option<Punishment>, Error> {
+  // language=sqlite
+  const UPDATE: &str = "UPDATE punishment SET stale = true, stale_reason = ?1, stale_time_sec = ?2 WHERE id = ?3;";
+
+  let unix_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+
+  let conn = get_connection()?;
+  let mut prepared = conn.prepare(UPDATE)?;
+  prepared.execute((
+    reason,
+    unix_time as u32,
+    punishment_id
+  ))?;
+
+  fetch_single_punishment(punishment_id)
+}
+
+pub fn fetch_punishments(user_id: UserIdWrapper) -> Result<Vec<PartialPunishment>, Error> {
+  // language=sqlite
+  const SELECT: &str = "SELECT id, type, reason, time_sec FROM punishment WHERE issued_to = ?1 ORDER BY time_sec DESC;";
+
+  let conn = get_connection()?;
+  let mut prepared = conn.prepare(SELECT)?;
+  let mut rows = prepared.query([user_id])?;
+
+  let mut punishments = Vec::new();
+  while let Some(row) = rows.next()? {
+    punishments.push(PartialPunishment {
+      punishment_id: row.get_unwrap("id"),
+      punishment_type: PunishmentType::from_index(row.get_unwrap("type")),
+      reason: row.get_unwrap("reason"),
+      time_sec: row.get_unwrap::<_, i64>("time_sec") as u64,
+    })
+  }
+
+  Ok(punishments)
+}
+
+pub fn fetch_single_punishment(punishment_id: Uuid) -> Result<Option<Punishment>, Error> {
+  // language=sqlite
+  const SELECT: &str = "SELECT * FROM punishment WHERE id = ?1;";
+
+  let conn = get_connection()?;
+  let mut prepared = conn.prepare(SELECT)?;
+  let mut rows = prepared.query(params![punishment_id])?;
+
+  println!("Checking: {}", punishment_id);
+  if let Some(row) = rows.next()? {
+    return Ok(Some(convert_to_struct(row)));
+  }
+
+  Ok(None)
 }

@@ -3,11 +3,9 @@ use crate::database::{Punishment, PunishmentType};
 use crate::wrapper::UserIdWrapper;
 use poise::CreateReply;
 use poise::serenity_prelude::small_fixed_array::FixedString;
-use poise::serenity_prelude::{
-  CreateComponent, CreateContainer, CreateContainerComponent, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, CreateTextDisplay, MessageFlags, User,
-};
+use poise::serenity_prelude::{CreateAllowedMentions, CreateComponent, CreateContainer, CreateContainerComponent, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, CreateTextDisplay, MessageFlags, User};
 
-struct PunishmentDisplay<'a> {
+pub struct PunishmentDisplay<'a> {
   pub display: &'a str,
   pub color: u32,
   pub dm_text: &'a str,
@@ -18,7 +16,7 @@ impl PunishmentDisplay<'_> {
     PunishmentDisplay { display, color, dm_text }
   }
 
-  fn from_punishment_type<'a>(kind: &PunishmentType) -> PunishmentDisplay<'a> {
+  pub fn from_punishment_type<'a>(kind: &PunishmentType) -> PunishmentDisplay<'a> {
     match kind {
       PunishmentType::KICK => PunishmentDisplay::from("<:dot_gray:1499540057172742174> kick", 0xB3968D, "You have been kicked."),
       PunishmentType::WARN => PunishmentDisplay::from("<:dot_orange:1499540055402745876> warn", 0xFAA620, "You have been warned."),
@@ -111,7 +109,9 @@ pub fn get_messages<'a>(ctx: &Context<'_>, punishment: &Punishment, member: &Use
 
 pub async fn send_messages(ctx: &Context<'_>, punishment: &Punishment, member: &User) -> Result<(), Error> {
   let (components, dm_message) = get_messages(&ctx, &punishment, &member)?;
-  ctx.send(CreateReply::new().flags(MessageFlags::IS_COMPONENTS_V2).components(vec![components])).await?;
+  ctx.send(CreateReply::new().flags(MessageFlags::IS_COMPONENTS_V2)
+    .allowed_mentions(CreateAllowedMentions::default().empty_roles().empty_users())
+    .components(vec![components])).await?;
 
   if let Ok(msg) = dm_message.ok_or_else(|| "not present") {
     if let Ok(channel) = member.create_dm_channel(ctx.http()).await {

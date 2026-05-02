@@ -1,5 +1,5 @@
-use rusqlite::ToSql;
 use rusqlite::types::{FromSql, FromSqlResult, ToSqlOutput, ValueRef};
+use rusqlite::ToSql;
 
 pub struct UserIdWrapper(pub u64);
 
