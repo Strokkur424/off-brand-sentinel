@@ -26,32 +26,36 @@ will be used instead.
 
 On first run, the bot will startup, generate the files, and shut down again. This is because you **haven't given it a token** yet.
 You can create a new Discord bot [on the Discord developer portal](https://discord.com/developers/applications). You will need two
-create **two applications/bots if you want to use the Factoids feature**. Without Factoids, you just need one bot.
+create **two applications/bots if you want to use the Factoids feature**, however Factoids is optional.
 
 Create your bot(s). Ensure the only installation method is set to **Guild Install**. The Sentinel bot requires the following permissions:
 
 - `Kick Members`, `Ban Members`, and `Moderate Members`.
 
-Furthermore, ensure that the bot's role is above any other member's roles.
+When adding it to your guild, ensure that the bot's role is above any other member's roles.
 
 The Factoids bot does not require any permissions.
 
 Once you have obtained your bot token(s), open `config.toml` and enter into the appropriate fields.
-Furthermore, you will need to use configure the channels the bot will use for sending modmail/report messages and create appeals.
-The modmail/report message channels can be in the same channel, but it is recommended for the appeals channel to have its own channel.
+Lastly, you may want to configure the channels the bot will use for sending modmail/report messages and create appeals. These are technically
+optional, but highly recommended. The modmail/report message channels can be in the same channel, but it is recommended for the appeals
+channel to have its own channel.
 
 ## Features
 
 ### Commands
 
 **User commands**:
+
 - `/modmail`
 - `/about`
-- 
+
 **Punishment commands**:
+
 - `/timeout`, `/warn`, `/ban`, `/kick`.
 
 **General management commands**:
+
 - `/note` -- set a user note without the user being notified
 - `/punishment (search user|show)` -- display information about past punishment
 - `/punishment reason` -- update the reason of a past punishment
@@ -65,9 +69,11 @@ The modmail/report message channels can be in the same channel, but it is recomm
 These are accessible when you right-click a user's message `Apps > Sentinel`.
 
 **User entries**:
+
 - `Report` -- reports a message
 
 **Moderator entries**:
+
 - `Ban` -- bans the user who sent the message
 - `Kick` -- kicks the user who sent the message
 - `Quick Ban` -- bans the user who sent the message without asking for a reason first
