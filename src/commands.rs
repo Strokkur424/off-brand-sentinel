@@ -60,6 +60,7 @@ pub fn get_commands() -> Vec<poise::Command<Data, Error>> {
     kick_context(),
     quick_ban_context(),
     report_context(),
+    modmail(),
   ]
 }
 
@@ -250,6 +251,48 @@ async fn report_context(ctx: Context<'_>, msg: Message) -> Result<(), Error> {
     .send(
       CreateReply::new()
         .content("Reporting has not been setup, please consult your local administrator.")
+        .ephemeral(true),
+    )
+    .await?;
+  Ok(())
+}
+
+/// Sends a message privately to the moderators
+#[poise::command(slash_command, guild_only)]
+async fn modmail(ctx: Context<'_>, #[description = "The message to send the moderators"] message: String) -> Result<(), Error> {
+  let config = CONFIG.get().expect("This shouldn't happen (GET CONFIG)");
+
+  if let Some(channels) = config.guilds.get(&ctx.guild_id().unwrap().to_string()) {
+    if let Some(mod_msg_channel) = channels.channel_mod_msg.clone() {
+      let author_avatar = ctx
+        .author()
+        .avatar_url()
+        .unwrap_or_else(|| format!("https://cdn.discordapp.com/embed/avatars/{}.png", (ctx.author().id.get() >> 22) % 6));
+
+      ctx
+        .http()
+        .send_message(
+          GenericChannelId::new(mod_msg_channel.parse::<u64>()?),
+          Vec::new(),
+          &CreateMessage::new().embed(
+            CreateEmbed::new()
+              .title("A new modmail message has been submitted")
+              .description(message)
+              .footer(CreateEmbedFooter::new(format!("{} ({})", ctx.author().name, ctx.author().id)).icon_url(author_avatar))
+              .timestamp(Timestamp::now())
+              .color(0x38393B),
+          ),
+        )
+        .await?;
+      ctx.send(CreateReply::new().content("Your modmail was sent successfully. Please wait patiently for a response.").ephemeral(true)).await?;
+      return Ok(());
+    }
+  }
+
+  ctx
+    .send(
+      CreateReply::new()
+        .content("The mod mail has not been setup, please consult your local administrator.")
         .ephemeral(true),
     )
     .await?;
