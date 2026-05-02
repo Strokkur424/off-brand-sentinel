@@ -1,9 +1,9 @@
 use crate::database::{Duration, PunishmentType};
 use crate::punishments::{execute_ban, execute_kick};
 use crate::wrapper::UserIdWrapper;
-use crate::{TIMESTAMP_BOOT, modals, punishments};
+use crate::{modals, punishments, CONFIG, TIMESTAMP_BOOT};
+use poise::serenity_prelude::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, GenericChannelId, Member, Message, MessageFlags, Timestamp};
 use poise::CreateReply;
-use poise::serenity_prelude::{CreateEmbed, Member, Message, MessageFlags, Timestamp};
 use punishments::send_messages;
 use std::time::UNIX_EPOCH;
 
@@ -49,7 +49,18 @@ const GIT_BRANCH: &str = env!("GIT_BRANCH");
 const BUILD_TIME_SEC: &str = env!("BUILD_TIME_SEC");
 
 pub fn get_commands() -> Vec<poise::Command<Data, Error>> {
-  vec![about(), timeout(), ban(), kick(), warn(), note(), ban_context(), kick_context(), quick_ban_context()]
+  vec![
+    about(),
+    timeout(),
+    ban(),
+    kick(),
+    warn(),
+    note(),
+    ban_context(),
+    kick_context(),
+    quick_ban_context(),
+    report_context(),
+  ]
 }
 
 /// Displays information about Sentinel
@@ -62,7 +73,7 @@ async fn about(ctx: Context<'_>) -> Result<(), Error> {
 
   ctx
     .send(
-      poise::CreateReply::default().embed(
+      CreateReply::default().embed(
         CreateEmbed::new()
           .color(0xEB4968)
           .title("Sentinel (Off Brand)")
@@ -189,5 +200,58 @@ async fn kick_context(ctx: poise::ApplicationContext<'_, Data, Error>, msg: Mess
 #[poise::command(context_menu_command = "Quick Ban", guild_only, required_permissions = "BAN_MEMBERS")]
 async fn quick_ban_context(ctx: Context<'_>, msg: Message) -> Result<(), Error> {
   execute_ban(&ctx, &msg.author, true, Some(format!("Quick-banned for sending a message in <#{}>", msg.channel_id))).await?;
+  Ok(())
+}
+
+#[poise::command(context_menu_command = "Report", guild_only)]
+async fn report_context(ctx: Context<'_>, msg: Message) -> Result<(), Error> {
+  let config = CONFIG.get().expect("This shouldn't happen (GET CONFIG)");
+
+  if let Some(channels) = config.guilds.get(&ctx.guild_id().unwrap().to_string()) {
+    if let Some(report_channel) = channels.channel_report.clone() {
+      let user_avatar = msg
+        .author
+        .avatar_url()
+        .unwrap_or_else(|| format!("https://cdn.discordapp.com/embed/avatars/{}.png", (msg.author.id.get() >> 22) % 6));
+      let author_avatar = ctx
+        .author()
+        .avatar_url()
+        .unwrap_or_else(|| format!("https://cdn.discordapp.com/embed/avatars/{}.png", (ctx.author().id.get() >> 22) % 6));
+
+      ctx
+        .http()
+        .send_message(
+          GenericChannelId::new(report_channel.parse::<u64>()?),
+          Vec::new(),
+          &CreateMessage::new().embed(
+            CreateEmbed::new()
+              .author(CreateEmbedAuthor::new(format!("{} ({})", msg.author.name, msg.author.id)).icon_url(user_avatar))
+              .title("A message has been reported")
+              .description(format!("**Reported Content**: \n\n{}", msg.content))
+              .field("Message", format!("{}", msg.link()), false)
+              .footer(CreateEmbedFooter::new(format!("{} ({})", ctx.author().name, ctx.author().id)).icon_url(author_avatar))
+              .timestamp(Timestamp::now())
+              .color(0x38393B),
+          ),
+        )
+        .await?;
+      ctx
+        .send(
+          CreateReply::new()
+            .content(format!("Successfully reported a message by <@{}>.", msg.author.id))
+            .ephemeral(true),
+        )
+        .await?;
+      return Ok(());
+    }
+  }
+
+  ctx
+    .send(
+      CreateReply::new()
+        .content("Reporting has not been setup, please consult your local administrator.")
+        .ephemeral(true),
+    )
+    .await?;
   Ok(())
 }

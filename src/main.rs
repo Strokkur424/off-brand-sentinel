@@ -14,9 +14,11 @@ use std::env;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::SystemTime;
+use crate::config::Configuration;
 
 static TIMESTAMP_BOOT: OnceLock<SystemTime> = OnceLock::new();
-pub static WORKING_DIRECTORY: OnceLock<String> = OnceLock::new();
+pub(crate) static WORKING_DIRECTORY: OnceLock<String> = OnceLock::new();
+pub(crate) static CONFIG: OnceLock<Configuration> = OnceLock::new();
 
 #[tokio::main]
 async fn main() {
@@ -36,7 +38,8 @@ async fn main() {
     eprintln!("Failed to load config: {msg}");
     return;
   }
-  let config = config.unwrap();
+  CONFIG.set(config.unwrap()).expect("This shouldn't happen (SET CONFIG)");
+  let config = CONFIG.get().expect("This shouldn't happen (GET CONFIG)");
 
   let mut tasks = Vec::new();
 

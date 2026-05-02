@@ -4,19 +4,19 @@ use std::fs;
 
 const DEFAULT_CONFIG: &str = include_str!("./resources/config.toml");
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct Configuration {
   pub tokens: Tokens,
   pub guilds: HashMap<String, Channels>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct Tokens {
   pub sentinel: String,
   pub factoids: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct Channels {
   #[serde(rename = "channel-report")]
   pub channel_report: Option<String>,
