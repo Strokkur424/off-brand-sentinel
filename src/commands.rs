@@ -329,6 +329,7 @@ async fn punishment(_: Context<'_>) -> Result<(), Error> {
   Ok(()) // never called
 }
 
+/// Set the reason of a punishment
 #[poise::command(slash_command, rename = "reason")]
 async fn punishment_reason(ctx: Context<'_>, #[string] punishment: Uuid, reason: String) -> Result<(), Error> {
   if let Err(e) = database::update_punishment_reason(punishment, reason) {
@@ -393,6 +394,7 @@ async fn ensure_valid_punishment(ctx: Context<'_>, punishment: Result<Option<Pun
   Ok(punishment.unwrap())
 }
 
+/// Show the details of a punishment
 #[poise::command(slash_command, rename = "show")]
 async fn punishment_show(ctx: Context<'_>, #[string] punishment: Uuid) -> Result<(), Error> {
   let punishment = ensure_valid_punishment(ctx, database::fetch_single_punishment(punishment)).await;
@@ -414,6 +416,7 @@ async fn punishment_show(ctx: Context<'_>, #[string] punishment: Uuid) -> Result
   Ok(())
 }
 
+/// Mark a punishment as stale
 #[poise::command(slash_command, rename = "stale")]
 async fn punishment_stale(ctx: Context<'_>, #[string] punishment: Uuid, reason: Option<String>) -> Result<(), Error> {
   let punishment = ensure_valid_punishment(ctx, database::stale_punishment(punishment, reason)).await;
@@ -462,6 +465,7 @@ async fn punishment_search(_: Context<'_>) -> Result<(), Error> {
   Ok(()) // never called
 }
 
+/// Search for punishments issued to a user
 #[poise::command(slash_command, rename = "user")]
 async fn punishment_search_user(ctx: Context<'_>, user: User) -> Result<(), Error> {
   let entries: Vec<PartialPunishment> = database::fetch_punishments(UserIdWrapper(user.id.get()))?;
