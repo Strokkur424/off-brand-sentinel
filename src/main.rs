@@ -1,7 +1,8 @@
 mod commands;
 mod database;
-mod messages;
+mod punishments;
 mod wrapper;
+mod modals;
 
 use poise::serenity_prelude::{CacheHttp, EventHandler, FullEvent};
 use poise::{Framework, FrameworkOptions};

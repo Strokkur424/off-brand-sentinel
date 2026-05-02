@@ -1,10 +1,11 @@
 use crate::commands::{Context, Error};
 use crate::database::{Punishment, PunishmentType};
-use poise::CreateReply;
+use crate::wrapper::UserIdWrapper;
 use poise::serenity_prelude::small_fixed_array::FixedString;
 use poise::serenity_prelude::{
   CreateComponent, CreateContainer, CreateContainerComponent, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, CreateTextDisplay, Member, MessageFlags,
 };
+use poise::CreateReply;
 
 struct PunishmentDisplay<'a> {
   pub display: &'a str,
@@ -26,6 +27,36 @@ impl PunishmentDisplay<'_> {
       PunishmentType::NOTE => PunishmentDisplay::from("<:dot_blue:1499540058330632234> note", 0x3797DA, ""),
     }
   }
+}
+
+pub async fn execute_ban(ctx: &Context<'_>, member: &Member, delete_messages: bool, reason: Option<String>) -> Result<(), Error> {
+  let delete_seconds = if delete_messages { std::time::Duration::from_hours(1).as_secs() } else { 0 };
+
+  let punishment = crate::database::insert_punishment(
+    UserIdWrapper(member.user.id.get()),
+    UserIdWrapper(ctx.author().id.get()),
+    PunishmentType::BAN,
+    None,
+    reason.clone(),
+  )?;
+
+  send_messages(&ctx, &punishment, &member).await?;
+  member.ban(ctx.http(), delete_seconds as u32, reason.as_deref()).await?;
+  Ok(())
+}
+
+pub async fn execute_kick(ctx: &Context<'_>, member: &Member, reason: Option<String>) -> Result<(), Error> {
+  let punishment = crate::database::insert_punishment(
+    UserIdWrapper(member.user.id.get()),
+    UserIdWrapper(ctx.author().id.get()),
+    PunishmentType::KICK,
+    None,
+    reason.clone(),
+  )?;
+
+  send_messages(&ctx, &punishment, &member).await?;
+  member.kick(ctx.http(), reason.as_deref()).await?;
+  Ok(())
 }
 
 fn get_embeds<'a>(punishment: &Punishment, target: &Member, guild_name: FixedString, guild_icon: String) -> Result<(CreateComponent<'a>, Option<CreateMessage<'a>>), Error> {

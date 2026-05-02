@@ -1,8 +1,10 @@
 use crate::database::{Duration, PunishmentType};
+use crate::punishments::{execute_ban, execute_kick};
 use crate::wrapper::UserIdWrapper;
-use crate::{messages, TIMESTAMP_BOOT};
-use poise::serenity_prelude::{CreateEmbed, Member, MessageFlags, Timestamp};
+use crate::{modals, punishments, TIMESTAMP_BOOT};
+use poise::serenity_prelude::{CreateEmbed, Member, Message, MessageFlags, Timestamp};
 use poise::CreateReply;
+use punishments::send_messages;
 use std::time::UNIX_EPOCH;
 
 pub struct Data {}
@@ -47,7 +49,7 @@ const GIT_BRANCH: &str = env!("GIT_BRANCH");
 const BUILD_TIME_SEC: &str = env!("BUILD_TIME_SEC");
 
 pub fn get_commands() -> Vec<poise::Command<Data, Error>> {
-  vec![about(), timeout(), ban(), kick(), warn(), note()]
+  vec![about(), timeout(), ban(), kick(), warn(), note(), ban_context(), kick_context(), quick_ban_context()]
 }
 
 /// Displays information about Sentinel
@@ -96,7 +98,7 @@ async fn timeout(
     .disable_communication_until(ctx.http(), Timestamp::from_unix_timestamp(timestamp_unix as i64)?)
     .await?;
 
-  messages::send_messages(&ctx, &punishment, &member).await?;
+  send_messages(&ctx, &punishment, &member).await?;
   Ok(())
 }
 
@@ -108,21 +110,7 @@ async fn ban(
   #[description = "The reason for banning the member"] reason: Option<String>,
   #[description = "If recent messages should be deleted - defaults to true"] delete_messages: Option<bool>,
 ) -> Result<(), Error> {
-  let punishment = crate::database::insert_punishment(
-    UserIdWrapper(member.user.id.get()),
-    UserIdWrapper(ctx.author().id.get()),
-    PunishmentType::BAN,
-    None,
-    reason.clone(),
-  )?;
-  let delete_seconds = if delete_messages.unwrap_or(true) {
-    std::time::Duration::from_hours(1).as_secs()
-  } else {
-    0
-  };
-
-  messages::send_messages(&ctx, &punishment, &member).await?;
-  member.ban(ctx.http(), delete_seconds as u32, reason.as_deref()).await?;
+  execute_ban(&ctx, &member, delete_messages.unwrap_or(true), reason).await?;
   Ok(())
 }
 
@@ -133,16 +121,7 @@ async fn kick(
   #[description = "The member to kick"] member: Member,
   #[description = "The reason for kicking the member"] reason: Option<String>,
 ) -> Result<(), Error> {
-  let punishment = crate::database::insert_punishment(
-    UserIdWrapper(member.user.id.get()),
-    UserIdWrapper(ctx.author().id.get()),
-    PunishmentType::KICK,
-    None,
-    reason.clone(),
-  )?;
-
-  messages::send_messages(&ctx, &punishment, &member).await?;
-  member.kick(ctx.http(), reason.as_deref()).await?;
+  execute_kick(&ctx, &member, reason).await?;
   Ok(())
 }
 
@@ -157,7 +136,7 @@ async fn warn(ctx: Context<'_>, #[description = "The member to warn"] member: Me
     Some(reason),
   )?;
 
-  messages::send_messages(&ctx, &punishment, &member).await?;
+  send_messages(&ctx, &punishment, &member).await?;
   Ok(())
 }
 
@@ -172,7 +151,46 @@ async fn note(ctx: Context<'_>, #[description = "The member to add a note to"] m
     Some(reason),
   )?;
 
-  let (component, _) = messages::get_messages(&ctx, &punishment, &member)?;
+  let (component, _) = punishments::get_messages(&ctx, &punishment, &member)?;
   ctx.send(CreateReply::new().flags(MessageFlags::IS_COMPONENTS_V2).components(vec![component])).await?;
+  Ok(())
+}
+
+#[poise::command(context_menu_command = "Ban", guild_only, required_permissions = "BAN_MEMBERS")]
+async fn ban_context(ctx: poise::ApplicationContext<'_, Data, Error>, msg: Message) -> Result<(), Error> {
+  let name = msg.author.clone().name;
+  let id = format!("ban_{}", name);
+  let title = format!("Ban {}", name);
+
+  let reason = modals::send_reason_modal(&ctx, title, id).await?;
+  if let Some(reason) = reason {
+    let ctx = Context::from(ctx);
+    let member = ctx.guild_id().unwrap().member(ctx.http(), msg.author.id).await?;
+    execute_ban(&ctx, &member, true, Some(reason)).await?;
+  }
+
+  Ok(())
+}
+
+#[poise::command(context_menu_command = "Kick", guild_only, required_permissions = "KICK_MEMBERS")]
+async fn kick_context(ctx: poise::ApplicationContext<'_, Data, Error>, msg: Message) -> Result<(), Error> {
+  let name = msg.author.clone().name;
+  let id = format!("kick_{}", name);
+  let title = format!("Kick {}", name);
+
+  let reason = modals::send_reason_modal(&ctx, title, id).await?;
+  if let Some(reason) = reason {
+    let ctx = Context::from(ctx);
+    let member = ctx.guild_id().unwrap().member(ctx.http(), msg.author.id).await?;
+    execute_kick(&ctx, &member, Some(reason)).await?;
+  }
+
+  Ok(())
+}
+
+#[poise::command(context_menu_command = "Quick Ban", guild_only, required_permissions = "BAN_MEMBERS")]
+async fn quick_ban_context(ctx: Context<'_>, msg: Message) -> Result<(), Error> {
+  let member = ctx.guild_id().unwrap().member(ctx.http(), msg.author.id).await?;
+  execute_ban(&ctx, &member, true, Some(format!("Quick-banned for sending a message in <#{}>", msg.channel_id))).await?;
   Ok(())
 }
