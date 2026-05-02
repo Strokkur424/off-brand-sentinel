@@ -98,7 +98,7 @@ async fn timeout(
     .disable_communication_until(ctx.http(), Timestamp::from_unix_timestamp(timestamp_unix as i64)?)
     .await?;
 
-  send_messages(&ctx, &punishment, &member).await?;
+  send_messages(&ctx, &punishment, &member.user).await?;
   Ok(())
 }
 
@@ -110,7 +110,7 @@ async fn ban(
   #[description = "The reason for banning the member"] reason: Option<String>,
   #[description = "If recent messages should be deleted - defaults to true"] delete_messages: Option<bool>,
 ) -> Result<(), Error> {
-  execute_ban(&ctx, &member, delete_messages.unwrap_or(true), reason).await?;
+  execute_ban(&ctx, &member.user, delete_messages.unwrap_or(true), reason).await?;
   Ok(())
 }
 
@@ -121,7 +121,7 @@ async fn kick(
   #[description = "The member to kick"] member: Member,
   #[description = "The reason for kicking the member"] reason: Option<String>,
 ) -> Result<(), Error> {
-  execute_kick(&ctx, &member, reason).await?;
+  execute_kick(&ctx, &member.user, reason).await?;
   Ok(())
 }
 
@@ -136,7 +136,7 @@ async fn warn(ctx: Context<'_>, #[description = "The member to warn"] member: Me
     Some(reason),
   )?;
 
-  send_messages(&ctx, &punishment, &member).await?;
+  send_messages(&ctx, &punishment, &member.user).await?;
   Ok(())
 }
 
@@ -151,7 +151,7 @@ async fn note(ctx: Context<'_>, #[description = "The member to add a note to"] m
     Some(reason),
   )?;
 
-  let (component, _) = punishments::get_messages(&ctx, &punishment, &member)?;
+  let (component, _) = punishments::get_messages(&ctx, &punishment, &member.user)?;
   ctx.send(CreateReply::new().flags(MessageFlags::IS_COMPONENTS_V2).components(vec![component])).await?;
   Ok(())
 }
@@ -165,8 +165,7 @@ async fn ban_context(ctx: poise::ApplicationContext<'_, Data, Error>, msg: Messa
   let reason = modals::send_reason_modal(&ctx, title, id).await?;
   if let Some(reason) = reason {
     let ctx = Context::from(ctx);
-    let member = ctx.guild_id().unwrap().member(ctx.http(), msg.author.id).await?;
-    execute_ban(&ctx, &member, true, Some(reason)).await?;
+    execute_ban(&ctx, &msg.author, true, Some(reason)).await?;
   }
 
   Ok(())
@@ -181,8 +180,7 @@ async fn kick_context(ctx: poise::ApplicationContext<'_, Data, Error>, msg: Mess
   let reason = modals::send_reason_modal(&ctx, title, id).await?;
   if let Some(reason) = reason {
     let ctx = Context::from(ctx);
-    let member = ctx.guild_id().unwrap().member(ctx.http(), msg.author.id).await?;
-    execute_kick(&ctx, &member, Some(reason)).await?;
+    execute_kick(&ctx, &msg.author, Some(reason)).await?;
   }
 
   Ok(())
@@ -190,7 +188,6 @@ async fn kick_context(ctx: poise::ApplicationContext<'_, Data, Error>, msg: Mess
 
 #[poise::command(context_menu_command = "Quick Ban", guild_only, required_permissions = "BAN_MEMBERS")]
 async fn quick_ban_context(ctx: Context<'_>, msg: Message) -> Result<(), Error> {
-  let member = ctx.guild_id().unwrap().member(ctx.http(), msg.author.id).await?;
-  execute_ban(&ctx, &member, true, Some(format!("Quick-banned for sending a message in <#{}>", msg.channel_id))).await?;
+  execute_ban(&ctx, &msg.author, true, Some(format!("Quick-banned for sending a message in <#{}>", msg.channel_id))).await?;
   Ok(())
 }

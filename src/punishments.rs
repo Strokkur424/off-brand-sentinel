@@ -1,9 +1,11 @@
 use crate::commands::{Context, Error};
 use crate::database::{Punishment, PunishmentType};
 use crate::wrapper::UserIdWrapper;
-use poise::serenity_prelude::small_fixed_array::FixedString;
-use poise::serenity_prelude::{CreateComponent, CreateContainer, CreateContainerComponent, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, CreateTextDisplay, Member, MessageFlags, PartialMember};
 use poise::CreateReply;
+use poise::serenity_prelude::small_fixed_array::FixedString;
+use poise::serenity_prelude::{
+  CreateComponent, CreateContainer, CreateContainerComponent, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, CreateTextDisplay, MessageFlags, User,
+};
 
 struct PunishmentDisplay<'a> {
   pub display: &'a str,
@@ -27,11 +29,11 @@ impl PunishmentDisplay<'_> {
   }
 }
 
-pub async fn execute_ban(ctx: &Context<'_>, member: &Member, delete_messages: bool, reason: Option<String>) -> Result<(), Error> {
+pub async fn execute_ban(ctx: &Context<'_>, member: &User, delete_messages: bool, reason: Option<String>) -> Result<(), Error> {
   let delete_seconds = if delete_messages { std::time::Duration::from_hours(1).as_secs() } else { 0 };
 
   let punishment = crate::database::insert_punishment(
-    UserIdWrapper(member.user.id.get()),
+    UserIdWrapper(member.id.get()),
     UserIdWrapper(ctx.author().id.get()),
     PunishmentType::BAN,
     None,
@@ -39,13 +41,16 @@ pub async fn execute_ban(ctx: &Context<'_>, member: &Member, delete_messages: bo
   )?;
 
   send_messages(&ctx, &punishment, &member).await?;
-  member.ban(ctx.http(), delete_seconds as u32, reason.as_deref()).await?;
+  ctx
+    .http()
+    .ban_user(ctx.guild_id().expect("Context outside of guild"), member.id, delete_seconds as u32, reason.as_deref())
+    .await?;
   Ok(())
 }
 
-pub async fn execute_kick(ctx: &Context<'_>, member: &Member, reason: Option<String>) -> Result<(), Error> {
+pub async fn execute_kick(ctx: &Context<'_>, member: &User, reason: Option<String>) -> Result<(), Error> {
   let punishment = crate::database::insert_punishment(
-    UserIdWrapper(member.user.id.get()),
+    UserIdWrapper(member.id.get()),
     UserIdWrapper(ctx.author().id.get()),
     PunishmentType::KICK,
     None,
@@ -53,17 +58,20 @@ pub async fn execute_kick(ctx: &Context<'_>, member: &Member, reason: Option<Str
   )?;
 
   send_messages(&ctx, &punishment, &member).await?;
-  member.kick(ctx.http(), reason.as_deref()).await?;
+  ctx
+    .http()
+    .kick_member(ctx.guild_id().expect("Context outside of guild"), member.id, reason.as_deref())
+    .await?;
   Ok(())
 }
 
-fn get_embeds<'a>(punishment: &Punishment, target: &Member, guild_name: FixedString, guild_icon: String) -> Result<(CreateComponent<'a>, Option<CreateMessage<'a>>), Error> {
+fn get_embeds<'a>(punishment: &Punishment, target: &User, guild_name: FixedString, guild_icon: String) -> Result<(CreateComponent<'a>, Option<CreateMessage<'a>>), Error> {
   let display = PunishmentDisplay::from_punishment_type(&punishment.punishment_type);
 
   let mut components: Vec<String> = Vec::new();
   components.push(format!("### Punishment {}", punishment.punishment_id.as_simple()));
   components.push(format!("**Type**: {}", display.display));
-  components.push(format!("**Issued to**: <@{}> (`@{}` / `{}`)", target.user.id.get(), target.user.name, target.user.id.get()));
+  components.push(format!("**Issued to**: <@{}> (`@{}` / `{}`)", target.id.get(), target.name, target.id.get()));
   components.push(format!("**Reason**: {}", punishment.reason.clone().unwrap_or(String::from("*No reason provided*"))));
 
   if let Ok(duration) = punishment.duration.clone().ok_or_else(|| "Not present") {
@@ -88,7 +96,7 @@ fn get_embeds<'a>(punishment: &Punishment, target: &Member, guild_name: FixedStr
   }
 }
 
-pub fn get_messages<'a>(ctx: &Context<'_>, punishment: &Punishment, member: &Member) -> Result<(CreateComponent<'a>, Option<CreateMessage<'a>>), Error> {
+pub fn get_messages<'a>(ctx: &Context<'_>, punishment: &Punishment, member: &User) -> Result<(CreateComponent<'a>, Option<CreateMessage<'a>>), Error> {
   let (guild_name, guild_icon) = {
     let guild = ctx.guild().unwrap();
 
@@ -101,12 +109,12 @@ pub fn get_messages<'a>(ctx: &Context<'_>, punishment: &Punishment, member: &Mem
   get_embeds(&punishment, &member, guild_name, guild_icon)
 }
 
-pub async fn send_messages(ctx: &Context<'_>, punishment: &Punishment, member: &Member) -> Result<(), Error> {
+pub async fn send_messages(ctx: &Context<'_>, punishment: &Punishment, member: &User) -> Result<(), Error> {
   let (components, dm_message) = get_messages(&ctx, &punishment, &member)?;
   ctx.send(CreateReply::new().flags(MessageFlags::IS_COMPONENTS_V2).components(vec![components])).await?;
 
   if let Ok(msg) = dm_message.ok_or_else(|| "not present") {
-    if let Ok(channel) = member.user.create_dm_channel(ctx.http()).await {
+    if let Ok(channel) = member.create_dm_channel(ctx.http()).await {
       ctx.http().send_message(channel.id.widen(), Vec::new(), &msg).await?;
     }
   }
