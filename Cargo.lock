@@ -1627,7 +1627,7 @@ checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
 
 [[package]]
 name = "sentinel-app"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "sentinel-bot",
  "sentinel-common",
@@ -1636,7 +1636,7 @@ dependencies = [
 
 [[package]]
 name = "sentinel-bot"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "futures-util",
  "poise",
@@ -1648,7 +1648,7 @@ dependencies = [
 
 [[package]]
 name = "sentinel-common"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "poise",
  "rusqlite",
@@ -1658,7 +1658,7 @@ dependencies = [
 
 [[package]]
 name = "sentinel-factoids"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "poise",
  "regex",
