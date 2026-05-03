@@ -1,6 +1,6 @@
-use crate::commands::{Data, Error};
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::{CreateInputText, CreateInteractionResponse, CreateLabel, CreateModal, CreateModalComponent, InputTextStyle, ModalInteractionData};
+use crate::{Data, Error};
 
 fn create_reason_modal(title: String, custom_id: String) -> CreateInteractionResponse<'static> {
   let reason_label = CreateLabel::input_text("Reason", CreateInputText::new(InputTextStyle::Short, "reason").required(true));

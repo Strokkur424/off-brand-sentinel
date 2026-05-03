@@ -1,0 +1,8 @@
+[package]
+name = "sentinel-common"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+poise = { workspace = true }
+rusqlite = { workspace = true }

@@ -1,5 +1,5 @@
 [workspace]
-members = ["sentinel-app", "sentinel-bot"]
+members = ["sentinel-app", "sentinel-bot", "sentinel-common"]
 resolver = "2"
 
 [workspace.package]
@@ -15,3 +15,4 @@ toml = "1.1.2"
 serde = { version = "1.0.228", features = ["derive"] }
 
 sentinel-bot = { path = "sentinel-bot" }
+sentinel-common = { path = "sentinel-common" }

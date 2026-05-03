@@ -4,6 +4,7 @@ version = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
+sentinel-common = { workspace = true }
 poise = { workspace = true }
 uuid = { workspace = true }
 rusqlite = { workspace = true }

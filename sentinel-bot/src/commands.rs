@@ -1,7 +1,6 @@
 use crate::database::{Duration, PartialPunishment, Punishment, PunishmentType};
 use crate::punishments::{execute_ban, execute_kick, PunishmentDisplay};
-use crate::wrapper::UserIdWrapper;
-use crate::{database, modals, punishments, CONFIG, TIMESTAMP_BOOT};
+use crate::{database, punishments, CONFIG, TIMESTAMP_BOOT};
 use poise::serenity_prelude::{
   CreateAllowedMentions, CreateComponent, CreateContainer, CreateContainerComponent, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, CreateSection,
   CreateSectionAccessory, CreateSectionComponent, CreateSeparator, CreateTextDisplay, CreateThumbnail, CreateUnfurledMediaItem, GenericChannelId, Member, Message, MessageFlags,
@@ -9,10 +8,10 @@ use poise::serenity_prelude::{
 };
 use poise::CreateReply;
 use punishments::send_messages;
+use sentinel_common::wrapper::{GuildIdWrapper, UserIdWrapper};
+use sentinel_common::{modals, Context, Data, Error};
 use std::time::UNIX_EPOCH;
 use uuid::Uuid;
-
-pub struct Data {}
 
 #[derive(poise::ChoiceParameter)]
 enum DurationChoices {
@@ -45,9 +44,6 @@ impl DurationChoices {
     }
   }
 }
-
-pub type Error = Box<dyn std::error::Error + Send + Sync>;
-pub type Context<'a> = poise::Context<'a, Data, Error>;
 
 const GIT_HASH: &str = env!("GIT_HASH");
 const GIT_BRANCH: &str = env!("GIT_BRANCH");
@@ -106,6 +102,7 @@ async fn timeout(
   let timestamp_unix = dur.to_unix_time_from_now();
 
   let punishment = database::insert_punishment(
+    GuildIdWrapper(member.guild_id.get()),
     UserIdWrapper(member.user.id.get()),
     UserIdWrapper(ctx.author().id.get()),
     PunishmentType::TIMEOUT,
@@ -147,6 +144,7 @@ async fn kick(
 #[poise::command(slash_command, guild_only, required_permissions = "MODERATE_MEMBERS")]
 async fn warn(ctx: Context<'_>, #[description = "The member to warn"] member: Member, #[description = "The reason for warning the member"] reason: String) -> Result<(), Error> {
   let punishment = database::insert_punishment(
+    GuildIdWrapper(member.guild_id.get()),
     UserIdWrapper(member.user.id.get()),
     UserIdWrapper(ctx.author().id.get()),
     PunishmentType::WARN,
@@ -162,6 +160,7 @@ async fn warn(ctx: Context<'_>, #[description = "The member to warn"] member: Me
 #[poise::command(slash_command, guild_only, required_permissions = "MODERATE_MEMBERS")]
 async fn note(ctx: Context<'_>, #[description = "The member to add a note to"] member: Member, #[description = "The note content"] reason: String) -> Result<(), Error> {
   let punishment = database::insert_punishment(
+    GuildIdWrapper(member.guild_id.get()),
     UserIdWrapper(member.user.id.get()),
     UserIdWrapper(ctx.author().id.get()),
     PunishmentType::NOTE,
@@ -397,7 +396,7 @@ async fn ensure_valid_punishment(ctx: Context<'_>, punishment: Result<Option<Pun
 /// Show the details of a punishment
 #[poise::command(slash_command, rename = "show")]
 async fn punishment_show(ctx: Context<'_>, #[string] punishment: Uuid) -> Result<(), Error> {
-  let punishment = ensure_valid_punishment(ctx, database::fetch_single_punishment(punishment)).await;
+  let punishment = ensure_valid_punishment(ctx, database::fetch_single_punishment(punishment, GuildIdWrapper(ctx.guild_id().unwrap().get()))).await;
   if punishment.is_err() {
     return Ok(());
   }
@@ -419,7 +418,7 @@ async fn punishment_show(ctx: Context<'_>, #[string] punishment: Uuid) -> Result
 /// Mark a punishment as stale
 #[poise::command(slash_command, rename = "stale")]
 async fn punishment_stale(ctx: Context<'_>, #[string] punishment: Uuid, reason: Option<String>) -> Result<(), Error> {
-  let punishment = ensure_valid_punishment(ctx, database::stale_punishment(punishment, reason)).await;
+  let punishment = ensure_valid_punishment(ctx, database::stale_punishment(punishment, GuildIdWrapper(ctx.guild_id().unwrap().get()), reason)).await;
   if punishment.is_err() {
     return Ok(());
   }
@@ -468,7 +467,7 @@ async fn punishment_search(_: Context<'_>) -> Result<(), Error> {
 /// Search for punishments issued to a user
 #[poise::command(slash_command, rename = "user")]
 async fn punishment_search_user(ctx: Context<'_>, user: User) -> Result<(), Error> {
-  let entries: Vec<PartialPunishment> = database::fetch_punishments(UserIdWrapper(user.id.get()))?;
+  let entries: Vec<PartialPunishment> = database::fetch_punishments(UserIdWrapper(user.id.get()), GuildIdWrapper(ctx.guild_id().unwrap().get()))?;
 
   let user_avatar = user
     .avatar_url()

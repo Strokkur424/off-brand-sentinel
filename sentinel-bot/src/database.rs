@@ -1,7 +1,7 @@
-use crate::commands::Error;
-use crate::wrapper::UserIdWrapper;
 use crate::WORKING_DIRECTORY;
 use rusqlite::{params, Connection, Row};
+use sentinel_common::wrapper::{GuildIdWrapper, UserIdWrapper};
+use sentinel_common::Error;
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
@@ -9,6 +9,7 @@ use uuid::Uuid;
 //<editor-fold desc="Data Types">
 pub struct Punishment {
   pub punishment_id: Uuid,
+  pub guild_id: GuildIdWrapper,
   pub issued_to: UserIdWrapper,
   pub issued_by: UserIdWrapper,
   pub punishment_type: PunishmentType,
@@ -102,6 +103,7 @@ pub fn setup_database() -> Result<(), String> {
   // language=sqlite
   const TABLE_SQL: &str = "CREATE TABLE IF NOT EXISTS punishment (
     id              BLOB NOT NULL PRIMARY KEY CHECK(length(id) == 16),
+    guild_id        INTEGER NOT NULL,
     issued_to       INTEGER NOT NULL,
     issued_by       INTEGER NOT NULL,
     type            INTEGER NOT NULL,
@@ -118,6 +120,7 @@ pub fn setup_database() -> Result<(), String> {
 }
 
 pub fn insert_punishment(
+  guild_id: GuildIdWrapper,
   issued_to: UserIdWrapper,
   issued_by: UserIdWrapper,
   punishment_type: PunishmentType,
@@ -125,8 +128,8 @@ pub fn insert_punishment(
   reason: Option<String>,
 ) -> Result<Punishment, String> {
   // language=sqlite
-  const INSERT_SQL: &str = "INSERT INTO punishment(id, issued_to, issued_by, type, duration_name, duration_sec, time_sec, reason)
-VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) RETURNING *;";
+  const INSERT_SQL: &str = "INSERT INTO punishment(id, guild_id, issued_to, issued_by, type, duration_name, duration_sec, time_sec, reason)
+VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) RETURNING *;";
 
   let conn = get_connection()?;
   let id = Uuid::new_v4();
@@ -135,6 +138,7 @@ VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) RETURNING *;";
   let mut rows = prepared_stmt
     .query((
       id,
+      guild_id,
       issued_to,
       issued_by,
       punishment_type.index(),
@@ -166,6 +170,7 @@ fn convert_to_struct(row: &Row) -> Punishment {
 
   Punishment {
     punishment_id: row.get_unwrap("id"),
+    guild_id: row.get_unwrap("guild_id"),
     issued_to: row.get_unwrap("issued_to"),
     issued_by: row.get_unwrap("issued_by"),
     punishment_type: PunishmentType::from_index(row.get_unwrap("type")),
@@ -188,26 +193,26 @@ pub fn update_punishment_reason(punishment_id: Uuid, reason: String) -> Result<(
   Ok(())
 }
 
-pub fn stale_punishment(punishment_id: Uuid, reason: Option<String>) -> Result<Option<Punishment>, Error> {
+pub fn stale_punishment(punishment_id: Uuid, guild_id: GuildIdWrapper, reason: Option<String>) -> Result<Option<Punishment>, Error> {
   // language=sqlite
-  const UPDATE: &str = "UPDATE punishment SET stale = true, stale_reason = ?1, stale_time_sec = ?2 WHERE id = ?3;";
+  const UPDATE: &str = "UPDATE punishment SET stale = true, stale_reason = ?1, stale_time_sec = ?2 WHERE id = ?3 AND guild_id = ?4;";
 
   let unix_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
 
   let conn = get_connection()?;
   let mut prepared = conn.prepare(UPDATE)?;
-  prepared.execute((reason, unix_time as u32, punishment_id))?;
+  prepared.execute((reason, unix_time as u32, punishment_id, guild_id.clone()))?;
 
-  fetch_single_punishment(punishment_id)
+  fetch_single_punishment(punishment_id, guild_id)
 }
 
-pub fn fetch_punishments(user_id: UserIdWrapper) -> Result<Vec<PartialPunishment>, Error> {
+pub fn fetch_punishments(user_id: UserIdWrapper, guild_id: GuildIdWrapper) -> Result<Vec<PartialPunishment>, Error> {
   // language=sqlite
-  const SELECT: &str = "SELECT id, type, reason, time_sec FROM punishment WHERE issued_to = ?1 ORDER BY time_sec DESC;";
+  const SELECT: &str = "SELECT id, type, reason, time_sec FROM punishment WHERE issued_to = ?1 AND guild_id = ?2 ORDER BY time_sec DESC;";
 
   let conn = get_connection()?;
   let mut prepared = conn.prepare(SELECT)?;
-  let mut rows = prepared.query([user_id])?;
+  let mut rows = prepared.query((user_id, guild_id))?;
 
   let mut punishments = Vec::new();
   while let Some(row) = rows.next()? {
@@ -222,13 +227,13 @@ pub fn fetch_punishments(user_id: UserIdWrapper) -> Result<Vec<PartialPunishment
   Ok(punishments)
 }
 
-pub fn fetch_single_punishment(punishment_id: Uuid) -> Result<Option<Punishment>, Error> {
+pub fn fetch_single_punishment(punishment_id: Uuid, guild_id: GuildIdWrapper) -> Result<Option<Punishment>, Error> {
   // language=sqlite
-  const SELECT: &str = "SELECT * FROM punishment WHERE id = ?1;";
+  const SELECT: &str = "SELECT * FROM punishment WHERE id = ?1 AND guild_id = ?2;";
 
   let conn = get_connection()?;
   let mut prepared = conn.prepare(SELECT)?;
-  let mut rows = prepared.query(params![punishment_id])?;
+  let mut rows = prepared.query((punishment_id, guild_id))?;
 
   if let Some(row) = rows.next()? {
     return Ok(Some(convert_to_struct(row)));

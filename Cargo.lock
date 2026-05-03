@@ -1639,9 +1639,18 @@ version = "0.1.0"
 dependencies = [
  "poise",
  "rusqlite",
+ "sentinel-common",
  "serde",
  "toml",
  "uuid",
+]
+
+[[package]]
+name = "sentinel-common"
+version = "0.1.0"
+dependencies = [
+ "poise",
+ "rusqlite",
 ]
 
 [[package]]

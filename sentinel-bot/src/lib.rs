@@ -9,9 +9,7 @@ use std::time::SystemTime;
 mod commands;
 mod config;
 mod database;
-mod modals;
 mod punishments;
-mod wrapper;
 
 static TIMESTAMP_BOOT: OnceLock<SystemTime> = OnceLock::new();
 pub(crate) static WORKING_DIRECTORY: OnceLock<String> = OnceLock::new();

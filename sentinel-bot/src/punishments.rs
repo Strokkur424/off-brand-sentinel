@@ -1,12 +1,12 @@
-use crate::commands::{Context, Error};
 use crate::database::{Punishment, PunishmentType};
-use crate::wrapper::UserIdWrapper;
+use sentinel_common::wrapper::{GuildIdWrapper, UserIdWrapper};
 use poise::serenity_prelude::small_fixed_array::FixedString;
 use poise::serenity_prelude::{
   CreateAllowedMentions, CreateComponent, CreateContainer, CreateContainerComponent, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, CreateTextDisplay,
   MessageFlags, User,
 };
 use poise::CreateReply;
+use sentinel_common::{Context, Error};
 
 pub struct PunishmentDisplay<'a> {
   pub display: &'a str,
@@ -34,6 +34,7 @@ pub async fn execute_ban(ctx: &Context<'_>, member: &User, delete_messages: bool
   let delete_seconds = if delete_messages { std::time::Duration::from_hours(1).as_secs() } else { 0 };
 
   let punishment = crate::database::insert_punishment(
+    GuildIdWrapper(ctx.guild_id().unwrap().get()),
     UserIdWrapper(member.id.get()),
     UserIdWrapper(ctx.author().id.get()),
     PunishmentType::BAN,
@@ -51,6 +52,7 @@ pub async fn execute_ban(ctx: &Context<'_>, member: &User, delete_messages: bool
 
 pub async fn execute_kick(ctx: &Context<'_>, member: &User, reason: Option<String>) -> Result<(), Error> {
   let punishment = crate::database::insert_punishment(
+    GuildIdWrapper(ctx.guild_id().unwrap().get()),
     UserIdWrapper(member.id.get()),
     UserIdWrapper(ctx.author().id.get()),
     PunishmentType::KICK,
