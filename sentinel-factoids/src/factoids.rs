@@ -2,33 +2,14 @@ use crate::database;
 use crate::database::get_all_factoids;
 use poise::serenity_prelude::{AutocompleteChoice, CreateAutocompleteResponse};
 use sentinel_common::wrapper::GuildIdWrapper;
-use sentinel_common::Error;
+use sentinel_common::{Error, FactoidData};
 use std::collections::HashMap;
 use std::sync::{LazyLock, RwLock};
-
-#[derive(Clone)]
-pub(crate) struct FactoidData {
-  pub display_name: String,
-  pub factoid_name: String,
-  pub description: Option<String>,
-  pub components: String,
-}
 
 #[derive(Eq, PartialEq, Hash)]
 struct CacheKey {
   pub guild: GuildIdWrapper,
   pub name: String,
-}
-
-impl FactoidData {
-  pub fn with_components(&self, components: String) -> Self {
-    Self {
-      display_name: self.display_name.clone(),
-      factoid_name: self.factoid_name.clone(),
-      description: self.description.clone(),
-      components,
-    }
-  }
 }
 
 static CACHE: RwLock<LazyLock<HashMap<CacheKey, FactoidData>>> = RwLock::new(LazyLock::new(|| HashMap::new()));
@@ -83,8 +64,17 @@ pub fn update_factoid(guild: GuildIdWrapper, factoid: String, updated: FactoidDa
   let mut write = CACHE.write().map_err(|_| "Failed to acquire WRITE lock.")?;
   database::update_factoid(&guild, &factoid, updated.clone())?;
 
-  let key = CacheKey { guild, name: factoid };
-  write.insert(key, updated);
+  write.remove(&CacheKey {
+    guild: guild.clone(),
+    name: factoid,
+  });
+  write.insert(
+    CacheKey {
+      guild,
+      name: updated.factoid_name.clone(),
+    },
+    updated,
+  );
   Ok(())
 }
 
@@ -96,6 +86,25 @@ pub fn get_factoid(guild: GuildIdWrapper, name: String) -> Option<FactoidData> {
     Some(v) => Some(v.clone()),
     None => None,
   }
+}
+
+pub fn get_factoid_by_display_name(guild: GuildIdWrapper, name: String) -> Option<FactoidData> {
+  let factoids = get_factoids_for_guild(guild);
+  for factoid in factoids {
+    if (factoid.display_name == name) {
+      return Some(factoid);
+    }
+  }
+  None
+}
+
+pub fn get_factoids_for_guild(guild: GuildIdWrapper) -> Vec<FactoidData> {
+  let read = CACHE.read().unwrap();
+  read
+    .iter()
+    .filter(|(k, _)| k.guild == guild)
+    .map(|(_, v)| v.clone())
+    .collect()
 }
 
 pub fn delete_factoid(guild: GuildIdWrapper, name: String) -> Result<(), Error> {

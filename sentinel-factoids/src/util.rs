@@ -1,6 +1,7 @@
-use poise::serenity_prelude::{ErrorResponse, Http, HttpError, LightMethod, Request, Route};
+use crate::Data;
+use poise::serenity_prelude::{ErrorResponse, Http, HttpError, LightMethod, Message, Request, Route};
 use poise::ApplicationContext;
-use sentinel_common::{Data, Error};
+use sentinel_common::Error;
 
 pub async fn respond_manually_components(
   ctx: ApplicationContext<'_, Data, Error>,
@@ -30,7 +31,35 @@ pub async fn respond_manually_components(
   );
 
   let request = Request::new(route, LightMethod::Post).body(Some(body.clone().into_bytes()));
-  // println!("Request body: <{}>", body);
+
+  fire(ctx.http(), request).await?;
+  ctx
+    .has_sent_initial_response
+    .store(true, std::sync::atomic::Ordering::SeqCst);
+
+  Ok(())
+}
+
+pub async fn reply_to_message(
+  ctx: ApplicationContext<'_, Data, Error>,
+  message: Message,
+  components: String,
+) -> Result<(), Error> {
+  let flags = 1 << 15;
+  let body = format!(
+    "{{ \"flags\": {}, \"message_reference\": {{ \"message_id\": \"{}\" }}, \"components\": {} }}",
+    flags,
+    message.id.get(),
+    components
+  );
+
+  let request = Request::new(
+    Route::ChannelMessages {
+      channel_id: message.channel_id,
+    },
+    LightMethod::Post,
+  )
+  .body(Some(body.clone().into_bytes()));
 
   fire(ctx.http(), request).await?;
   ctx

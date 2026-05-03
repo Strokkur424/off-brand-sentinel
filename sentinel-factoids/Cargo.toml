@@ -7,6 +7,7 @@ edition.workspace = true
 sentinel-common = { workspace = true }
 poise = { workspace = true }
 regex = { workspace = true }
+tokio = { workspace = true }
 serde_json = { workspace = true }
 rusqlite = { workspace = true }
 

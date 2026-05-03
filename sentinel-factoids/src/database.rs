@@ -1,7 +1,6 @@
-use crate::factoids::FactoidData;
 use rusqlite::Connection;
 use sentinel_common::wrapper::GuildIdWrapper;
-use sentinel_common::Error;
+use sentinel_common::{Error, FactoidData};
 use std::fs;
 
 fn get_connection() -> Result<Connection, Error> {

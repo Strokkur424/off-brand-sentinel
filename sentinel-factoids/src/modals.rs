@@ -1,10 +1,10 @@
-use crate::factoids::FactoidData;
 use poise::serenity_prelude::{
   CreateInputText, CreateInteractionResponse, CreateLabel, CreateModal, CreateModalComponent, InputTextStyle,
   ModalInteractionData,
 };
 use sentinel_common::modals::{send_modal, FactoidCreateData};
-use sentinel_common::{Data, Error};
+use sentinel_common::{Error, FactoidData};
+use crate::Data;
 
 fn create_factoid_create_modal(title: String, custom_id: String) -> CreateInteractionResponse<'static> {
   let description = CreateLabel::input_text(

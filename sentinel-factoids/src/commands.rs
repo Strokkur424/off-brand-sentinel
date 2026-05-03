@@ -1,13 +1,13 @@
-use crate::factoids::FactoidData;
-use crate::{factoids, modals, util};
-use poise::serenity_prelude::CreateAutocompleteResponse;
-use poise::ApplicationContext;
+use crate::{factoids, modals, update_factoid_commands, util, Data};
+use poise::serenity_prelude::{CreateAutocompleteResponse, GuildId};
+use poise::{ApplicationContext, Command, ContextMenuCommandAction, CreateReply};
 use regex::Regex;
 use sentinel_common::wrapper::GuildIdWrapper;
-use sentinel_common::{Context, Data, Error};
+use sentinel_common::{Context, Error, FactoidData};
 use serde_json::Value;
+use std::borrow::Cow;
 use std::str::FromStr;
-use std::sync::LazyLock;
+use std::sync::{LazyLock, Mutex};
 
 static REGEX_ID: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[a-z0-9_-]+$").unwrap());
 static REGEX_NAME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[a-zA-Z0-9 ]+$").unwrap());
@@ -34,12 +34,143 @@ macro_rules! format_json {
   };
 }
 
-pub fn get_sentinel_commands() -> Vec<poise::Command<Data, Error>> {
+pub fn get_sentinel_commands() -> Vec<Command<Data, Error>> {
   vec![factoid_root()]
 }
 
-pub(crate) fn get_factoid_commands() -> Vec<poise::Command<Data, Error>> {
-  vec![]
+pub(crate) fn get_factoid_commands(guild: GuildId) -> Vec<Command<Data, Error>> {
+  let mut commands: Vec<Command<Data, Error>> = Vec::new();
+  for factoid in factoids::get_factoids_for_guild(guild.into()) {
+    commands.push(create_factoid_command(factoid.clone()));
+    commands.push(create_factoid_context(factoid));
+  }
+  commands
+}
+
+fn create_factoid_context(factoid: FactoidData) -> Command<Data, Error> {
+  let name = factoid.display_name.clone();
+  let name: Cow<'static, str> = Cow::Owned(name);
+
+  let desc = factoid
+    .description
+    .clone()
+    .unwrap_or_else(|| "(description not set)".to_string());
+  let desc: Cow<'static, str> = Cow::Owned(desc);
+
+  Command {
+    prefix_action: None,
+    slash_action: None,
+    subcommands: vec![],
+    subcommand_required: false,
+    context_menu_action: Some(ContextMenuCommandAction::Message(|ctx, msg| {
+      Box::pin(async move {
+        let data = ctx.data();
+        let factoid = data.as_ref().factoid.clone();
+        ctx
+          .send(CreateReply::new().content("<:yes:1500417686981840957> Success!"))
+          .await
+          .map_err(|error| poise::FrameworkError::new_command(ctx.into(), Error::from(error.to_string())))?;
+        util::reply_to_message(ctx, msg, factoid.unwrap().components.clone())
+          .await
+          .map_err(|error| poise::FrameworkError::new_command(ctx.into(), error))
+      })
+    })),
+    name: name.clone(),
+    name_localizations: Default::default(),
+    qualified_name: name.clone(),
+    identifying_name: name.clone(),
+    source_code_name: name.clone(),
+    category: None,
+    hide_in_help: false,
+    description: Some(desc),
+    description_localizations: Default::default(),
+    help_text: None,
+    manual_cooldowns: None,
+    cooldowns: Mutex::new(Default::default()),
+    cooldown_config: Default::default(),
+    reuse_response: false,
+    default_member_permissions: Default::default(),
+    required_permissions: Default::default(),
+    required_bot_permissions: Default::default(),
+    owners_only: false,
+    guild_only: false,
+    dm_only: false,
+    nsfw_only: false,
+    on_error: None,
+    checks: vec![],
+    parameters: vec![],
+    custom_data: Box::new(Data { factoid: Some(factoid) }),
+    aliases: Default::default(),
+    invoke_on_edit: false,
+    track_deletion: false,
+    broadcast_typing: false,
+    context_menu_name: None,
+    ephemeral: false,
+    install_context: None,
+    interaction_context: None,
+    __non_exhaustive: (),
+  }
+}
+
+fn create_factoid_command(factoid: FactoidData) -> Command<Data, Error> {
+  let name = factoid.factoid_name.clone();
+  let name: Cow<'static, str> = Cow::Owned(name);
+
+  let desc = factoid
+    .description
+    .clone()
+    .unwrap_or_else(|| "(description not set)".to_string());
+  let desc: Cow<'static, str> = Cow::Owned(desc);
+
+  Command {
+    prefix_action: None,
+    slash_action: Some(|ctx| {
+      Box::pin(async move {
+        let data = ctx.data();
+        let factoid = data.as_ref().factoid.clone();
+        util::respond_manually_components(ctx, factoid.unwrap().components.clone())
+          .await
+          .map_err(|error| poise::FrameworkError::new_command(ctx.into(), error))
+      })
+    }),
+    subcommands: vec![],
+    subcommand_required: false,
+    context_menu_action: None,
+    name: name.clone(),
+    name_localizations: Default::default(),
+    qualified_name: name.clone(),
+    identifying_name: name.clone(),
+    source_code_name: name.clone(),
+    category: None,
+    hide_in_help: false,
+    description: Some(desc),
+    description_localizations: Default::default(),
+    help_text: None,
+    manual_cooldowns: None,
+    cooldowns: Mutex::new(Default::default()),
+    cooldown_config: Default::default(),
+    reuse_response: false,
+    default_member_permissions: Default::default(),
+    required_permissions: Default::default(),
+    required_bot_permissions: Default::default(),
+    owners_only: false,
+    guild_only: false,
+    dm_only: false,
+    nsfw_only: false,
+    on_error: None,
+    checks: vec![],
+    parameters: vec![],
+    custom_data: Box::new(Data { factoid: Some(factoid) }),
+    aliases: Default::default(),
+    invoke_on_edit: false,
+    track_deletion: false,
+    broadcast_typing: false,
+    context_menu_name: None,
+    ephemeral: false,
+    install_context: None,
+    interaction_context: None,
+    __non_exhaustive: (),
+  }
 }
 
 #[poise::command(
@@ -102,6 +233,7 @@ async fn factoid_add(
       components: components_json,
     },
   )?;
+  update_factoid_commands(ctx.guild_id().unwrap()).await?;
   Ok(())
 }
 
@@ -119,6 +251,7 @@ async fn factoid_remove(
   }
 
   factoids::delete_factoid(ctx.guild_id().unwrap().into(), id.clone())?;
+  update_factoid_commands(ctx.guild_id().unwrap()).await?;
   ctx
     .say(format!("<:yes:1500220801108934786> Successfully removed `{}`.", id))
     .await?;
@@ -184,6 +317,7 @@ async fn factoid_update(
     let components_json = validate_and_minimize_json!(data.components.as_str(), ctx);
     factoids::update_factoid(guild, id, data.with_components(components_json.clone()))?;
     util::respond_manually_components(ctx, components_json).await?;
+    update_factoid_commands(ctx.guild_id().unwrap()).await?;
     return Ok(());
   }
 
