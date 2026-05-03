@@ -1,5 +1,6 @@
 pub mod modals;
 pub mod wrapper;
+pub mod config;
 
 pub struct Data {}
 

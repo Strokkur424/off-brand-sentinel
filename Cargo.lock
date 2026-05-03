@@ -1630,6 +1630,7 @@ name = "sentinel-app"
 version = "0.1.0"
 dependencies = [
  "sentinel-bot",
+ "sentinel-common",
  "tokio",
 ]
 
@@ -1637,11 +1638,11 @@ dependencies = [
 name = "sentinel-bot"
 version = "0.1.0"
 dependencies = [
+ "futures-util",
  "poise",
  "rusqlite",
  "sentinel-common",
- "serde",
- "toml",
+ "sentinel-factoids",
  "uuid",
 ]
 
@@ -1651,6 +1652,19 @@ version = "0.1.0"
 dependencies = [
  "poise",
  "rusqlite",
+ "serde",
+ "toml",
+]
+
+[[package]]
+name = "sentinel-factoids"
+version = "0.1.0"
+dependencies = [
+ "poise",
+ "regex",
+ "rusqlite",
+ "sentinel-common",
+ "serde_json",
 ]
 
 [[package]]

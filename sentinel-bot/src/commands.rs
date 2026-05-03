@@ -1,6 +1,6 @@
 use crate::database::{Duration, PartialPunishment, Punishment, PunishmentType};
 use crate::punishments::{execute_ban, execute_kick, PunishmentDisplay};
-use crate::{database, punishments, CONFIG, TIMESTAMP_BOOT};
+use crate::{database, punishments, TIMESTAMP_BOOT};
 use poise::serenity_prelude::{
   CreateAllowedMentions, CreateComponent, CreateContainer, CreateContainerComponent, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, CreateSection,
   CreateSectionAccessory, CreateSectionComponent, CreateSeparator, CreateTextDisplay, CreateThumbnail, CreateUnfurledMediaItem, GenericChannelId, Member, Message, MessageFlags,
@@ -9,7 +9,7 @@ use poise::serenity_prelude::{
 use poise::CreateReply;
 use punishments::send_messages;
 use sentinel_common::wrapper::{GuildIdWrapper, UserIdWrapper};
-use sentinel_common::{modals, Context, Data, Error};
+use sentinel_common::{config, modals, Context, Data, Error};
 use std::time::UNIX_EPOCH;
 use uuid::Uuid;
 
@@ -50,7 +50,7 @@ const GIT_BRANCH: &str = env!("GIT_BRANCH");
 const BUILD_TIME_SEC: &str = env!("BUILD_TIME_SEC");
 
 pub fn get_commands() -> Vec<poise::Command<Data, Error>> {
-  vec![
+  let mut commands = vec![
     about(),
     timeout(),
     ban(),
@@ -63,7 +63,15 @@ pub fn get_commands() -> Vec<poise::Command<Data, Error>> {
     report_context(),
     modmail(),
     punishment(),
-  ]
+  ];
+
+  if sentinel_factoids::is_initialised() {
+    for factoid_command in sentinel_factoids::commands::get_sentinel_commands() {
+      commands.push(factoid_command)
+    }
+  }
+
+  commands
 }
 
 /// Displays information about Sentinel
@@ -218,7 +226,7 @@ async fn quick_ban_context(ctx: Context<'_>, msg: Message) -> Result<(), Error> 
 
 #[poise::command(context_menu_command = "Report", guild_only)]
 async fn report_context(ctx: Context<'_>, msg: Message) -> Result<(), Error> {
-  let config = CONFIG.get().expect("This shouldn't happen (GET CONFIG)");
+  let config = config::get_config_certain()?;
 
   if let Some(channels) = config.guilds.get(&ctx.guild_id().unwrap().to_string()) {
     if let Some(report_channel) = channels.channel_report.clone() {
@@ -272,7 +280,7 @@ async fn report_context(ctx: Context<'_>, msg: Message) -> Result<(), Error> {
 /// Sends a message privately to the moderators
 #[poise::command(slash_command, guild_only)]
 async fn modmail(ctx: Context<'_>, #[description = "The message to send the moderators"] message: String) -> Result<(), Error> {
-  let config = CONFIG.get().expect("This shouldn't happen (GET CONFIG)");
+  let config = config::get_config_certain()?;
 
   if let Some(channels) = config.guilds.get(&ctx.guild_id().unwrap().to_string()) {
     if let Some(mod_msg_channel) = channels.channel_mod_msg.clone() {

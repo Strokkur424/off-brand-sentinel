@@ -5,4 +5,5 @@ edition = { workspace = true }
 
 [dependencies]
 sentinel-bot = { workspace = true }
+sentinel-common = { workspace = true }
 tokio = { workspace = true }

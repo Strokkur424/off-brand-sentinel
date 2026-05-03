@@ -5,11 +5,11 @@ edition = { workspace = true }
 
 [dependencies]
 sentinel-common = { workspace = true }
+sentinel-factoids = { workspace = true }
 poise = { workspace = true }
 uuid = { workspace = true }
 rusqlite = { workspace = true }
-toml = { workspace = true }
-serde = { workspace = true }
+futures-util = { workspace = true }
 
 [lib]
 name = "sentinel_bot"

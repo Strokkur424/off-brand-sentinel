@@ -1,18 +1,45 @@
-use poise::serenity_prelude as serenity;
-use poise::serenity_prelude::{CreateInputText, CreateInteractionResponse, CreateLabel, CreateModal, CreateModalComponent, InputTextStyle, ModalInteractionData};
 use crate::{Data, Error};
+use poise::serenity_prelude as serenity;
+use poise::serenity_prelude::{
+  CreateInputText, CreateInteractionResponse, CreateLabel, CreateModal, CreateModalComponent, InputTextStyle,
+  ModalInteractionData,
+};
+
+pub struct FactoidCreateData {
+  pub components: String,
+  pub description: Option<String>,
+}
+
+pub struct FactoidEditData {
+  pub name: String,
+  pub display_name: String,
+  pub components: String,
+  pub description: Option<String>,
+}
 
 fn create_reason_modal(title: String, custom_id: String) -> CreateInteractionResponse<'static> {
-  let reason_label = CreateLabel::input_text("Reason", CreateInputText::new(InputTextStyle::Short, "reason").required(true));
-  CreateInteractionResponse::Modal(CreateModal::new(custom_id, title).components(vec![CreateModalComponent::Label(reason_label)]))
+  let reason_label = CreateLabel::input_text(
+    "Reason",
+    CreateInputText::new(InputTextStyle::Short, "reason").required(true),
+  );
+  CreateInteractionResponse::Modal(
+    CreateModal::new(custom_id, title).components(vec![CreateModalComponent::Label(reason_label)]),
+  )
 }
 
 fn parse_reason_modal(mut data: ModalInteractionData) -> String {
   poise::find_modal_text(&mut data, "reason").expect("missing reason")
 }
 
-pub async fn send_reason_modal(ctx: &poise::ApplicationContext<'_, Data, Error>, title: String, custom_id: String) -> Result<Option<String>, Error> {
-  let modal = create_reason_modal(title, custom_id.clone());
+pub async fn send_modal<R, F>(
+  ctx: &poise::ApplicationContext<'_, Data, Error>,
+  modal: CreateInteractionResponse<'static>,
+  custom_id: String,
+  map: F,
+) -> Result<Option<R>, Error>
+where
+  F: FnOnce(ModalInteractionData) -> R,
+{
   ctx.interaction.create_response(ctx.http(), modal).await?;
 
   let response = serenity::collector::ModalInteractionCollector::new(ctx.serenity_context())
@@ -24,9 +51,23 @@ pub async fn send_reason_modal(ctx: &poise::ApplicationContext<'_, Data, Error>,
     None => return Ok(None),
   };
 
-  response.create_response(ctx.http(), CreateInteractionResponse::Acknowledge).await?;
-  let reason = Some(parse_reason_modal(response.data));
-  ctx.has_sent_initial_response.store(true, std::sync::atomic::Ordering::SeqCst);
+  response
+    .create_response(ctx.http(), CreateInteractionResponse::Acknowledge)
+    .await?;
 
-  Ok(reason)
+  let data = map(response.data);
+  ctx
+    .has_sent_initial_response
+    .store(true, std::sync::atomic::Ordering::SeqCst);
+
+  Ok(Some(data))
+}
+
+pub async fn send_reason_modal(
+  ctx: &poise::ApplicationContext<'_, Data, Error>,
+  title: String,
+  custom_id: String,
+) -> Result<Option<String>, Error> {
+  let modal = create_reason_modal(title, custom_id.clone());
+  send_modal(ctx, modal, custom_id, parse_reason_modal).await
 }

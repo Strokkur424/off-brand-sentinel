@@ -4,7 +4,7 @@ use rusqlite::ToSql;
 
 pub struct UserIdWrapper(pub u64);
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct GuildIdWrapper(pub u64);
 
 impl UserIdWrapper {
@@ -16,6 +16,30 @@ impl UserIdWrapper {
 impl GuildIdWrapper {
   pub fn unwrap(self) -> GuildId {
     GuildId::new(self.0)
+  }
+}
+
+impl Into<UserIdWrapper> for UserId {
+  fn into(self) -> UserIdWrapper {
+    UserIdWrapper(self.get())
+  }
+}
+
+impl From<UserIdWrapper> for UserId {
+  fn from(value: UserIdWrapper) -> Self {
+    UserId::new(value.0)
+  }
+}
+
+impl Into<GuildIdWrapper> for GuildId {
+  fn into(self) -> GuildIdWrapper {
+    GuildIdWrapper(self.get())
+  }
+}
+
+impl From<GuildIdWrapper> for GuildId {
+  fn from(value: GuildIdWrapper) -> Self {
+    GuildId::new(value.0)
   }
 }
 
