@@ -66,13 +66,18 @@ channel to have its own channel.
 
 **General management commands**:
 
-- `/note` -- set a user note without the user being notified
-- `/punishment (search user|show)` -- display information about past punishment
-- `/punishment reason` -- update the reason of a past punishment
-- `/punishment stale` -- mark a punishment as stale; this also acts as an unban or removes a timeout
+- `/note`: set a user note without the user being notified
+- `/punishment (search user|show)`: display information about past punishment
+- `/punishment reason`: update the reason of a past punishment
+- `/punishment stale`: mark a punishment as stale; this also acts as an unban or removes a timeout
 
 **Factoid commands**
-*Not implemented yet.*
+
+- `/factoid add`: add a new factoid. The `id` is the command name and the `name` is the display name
+  used for the right-click context menu.
+- `/factoid update`: updates an existing factoid.
+- `/factoid source`: retrieves the component source for a factoid.
+- `/factoid remove`: removes a factoid.
 
 ### Context menu entries
 
@@ -80,13 +85,18 @@ These are accessible when you right-click a user's message `Apps > Sentinel`.
 
 **User entries**:
 
-- `Report` -- reports a message
+- `Report`: reports a message
 
 **Moderator entries**:
 
-- `Ban` -- bans the user who sent the message
-- `Kick` -- kicks the user who sent the message
-- `Quick Ban` -- bans the user who sent the message without asking for a reason first
+- `Ban`: bans the user who sent the message
+- `Kick`: kicks the user who sent the message
+- `Quick Ban`: bans the user who sent the message without asking for a reason first
+
+**Factoid entries**:
+
+Additionally to standard commands, factoids also get registered as right-click context menu items which
+allow you to send an embed as a reply to another person's message.
 
 ## Building
 
