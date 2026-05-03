@@ -41,11 +41,14 @@ pub fn load_config(parent_folder: &str) -> Result<(), Error> {
     fs::write(path.clone(), DEFAULT_CONFIG).map_err(|_| format!("Failed to create and write file: {}", path))?;
     String::from(DEFAULT_CONFIG)
   } else {
-    String::from_utf8(fs::read(path.clone()).map_err(|_| format!("Failed to read from file: {}", path))?).map_err(|e| format!("Failed to get String from utf8 vec: {}", e))?
+    String::from_utf8(fs::read(path.clone()).map_err(|_| format!("Failed to read from file: {}", path))?)
+      .map_err(|e| format!("Failed to get String from utf8 vec: {}", e))?
   };
 
   let config: Configuration = toml::from_str(source.as_str()).map_err(|e| format!("Failed to parse TOML: {}", e))?;
-  let _ = INSTANCE.set(config).map_err(|_| "The configuration was loaded already.")?;
+  let _ = INSTANCE
+    .set(config)
+    .map_err(|_| "The configuration was loaded already.")?;
   Ok(())
 }
 

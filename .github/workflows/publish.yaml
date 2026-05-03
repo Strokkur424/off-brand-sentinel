@@ -48,7 +48,7 @@ jobs:
         shell: bash
         run: |
           suffix=${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-    
+          
           raw_file="sentinel-${{ runner.arch }}-${{ matrix.os }}${suffix}"
           file_lower=$(echo "$raw_file" | tr '[:upper:]' '[:lower:]')
           echo "file_name=${file_lower}" >> $GITHUB_ENV

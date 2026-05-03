@@ -1,5 +1,5 @@
 use crate::WORKING_DIRECTORY;
-use rusqlite::{params, Connection, Row};
+use rusqlite::{Connection, Row};
 use sentinel_common::wrapper::{GuildIdWrapper, UserIdWrapper};
 use sentinel_common::Error;
 use std::fs;
@@ -75,7 +75,10 @@ impl Duration {
   }
 
   pub fn to_unix_time_from_now(&self) -> u64 {
-    (SystemTime::now() + self.std_duration).duration_since(UNIX_EPOCH).unwrap().as_secs()
+    (SystemTime::now() + self.std_duration)
+      .duration_since(UNIX_EPOCH)
+      .unwrap()
+      .as_secs()
   }
 }
 
@@ -91,7 +94,9 @@ impl Clone for Duration {
 
 //<editor-fold desc="Internal Utility">
 fn get_connection() -> Result<Connection, String> {
-  let dir: &String = WORKING_DIRECTORY.get().expect("This should not happen (GET WORKING DIR)");
+  let dir: &String = WORKING_DIRECTORY
+    .get()
+    .expect("This should not happen (GET WORKING DIR)");
   fs::create_dir_all(&dir).map_err(|e| format!("Failed to create directories for {dir}: {e}"))?;
 
   let path = format!("{dir}database.sqlite");
@@ -115,7 +120,9 @@ pub fn setup_database() -> Result<(), String> {
     time_sec        INTEGER NOT NULL,
     reason          TEXT DEFAULT NULL
 ) STRICT;";
-  get_connection()?.execute(TABLE_SQL, ()).map_err(|_| String::from("Failed to create table `punishment`."))?;
+  get_connection()?
+    .execute(TABLE_SQL, ())
+    .map_err(|_| String::from("Failed to create table `punishment`."))?;
   Ok(())
 }
 
@@ -128,13 +135,16 @@ pub fn insert_punishment(
   reason: Option<String>,
 ) -> Result<Punishment, String> {
   // language=sqlite
-  const INSERT_SQL: &str = "INSERT INTO punishment(id, guild_id, issued_to, issued_by, type, duration_name, duration_sec, time_sec, reason)
+  const INSERT_SQL: &str =
+    "INSERT INTO punishment(id, guild_id, issued_to, issued_by, type, duration_name, duration_sec, time_sec, reason)
 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) RETURNING *;";
 
   let conn = get_connection()?;
   let id = Uuid::new_v4();
 
-  let mut prepared_stmt = conn.prepare(INSERT_SQL).map_err(|e| format!("Failed to prepare statement for insert: {e}"))?;
+  let mut prepared_stmt = conn
+    .prepare(INSERT_SQL)
+    .map_err(|e| format!("Failed to prepare statement for insert: {e}"))?;
   let mut rows = prepared_stmt
     .query((
       id,
@@ -193,9 +203,14 @@ pub fn update_punishment_reason(punishment_id: Uuid, reason: String) -> Result<(
   Ok(())
 }
 
-pub fn stale_punishment(punishment_id: Uuid, guild_id: GuildIdWrapper, reason: Option<String>) -> Result<Option<Punishment>, Error> {
+pub fn stale_punishment(
+  punishment_id: Uuid,
+  guild_id: GuildIdWrapper,
+  reason: Option<String>,
+) -> Result<Option<Punishment>, Error> {
   // language=sqlite
-  const UPDATE: &str = "UPDATE punishment SET stale = true, stale_reason = ?1, stale_time_sec = ?2 WHERE id = ?3 AND guild_id = ?4;";
+  const UPDATE: &str =
+    "UPDATE punishment SET stale = true, stale_reason = ?1, stale_time_sec = ?2 WHERE id = ?3 AND guild_id = ?4;";
 
   let unix_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
 
@@ -208,7 +223,8 @@ pub fn stale_punishment(punishment_id: Uuid, guild_id: GuildIdWrapper, reason: O
 
 pub fn fetch_punishments(user_id: UserIdWrapper, guild_id: GuildIdWrapper) -> Result<Vec<PartialPunishment>, Error> {
   // language=sqlite
-  const SELECT: &str = "SELECT id, type, reason, time_sec FROM punishment WHERE issued_to = ?1 AND guild_id = ?2 ORDER BY time_sec DESC;";
+  const SELECT: &str =
+    "SELECT id, type, reason, time_sec FROM punishment WHERE issued_to = ?1 AND guild_id = ?2 ORDER BY time_sec DESC;";
 
   let conn = get_connection()?;
   let mut prepared = conn.prepare(SELECT)?;

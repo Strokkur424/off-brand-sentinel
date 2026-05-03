@@ -2,8 +2,9 @@ use crate::database::{Duration, PartialPunishment, Punishment, PunishmentType};
 use crate::punishments::{execute_ban, execute_kick, PunishmentDisplay};
 use crate::{database, punishments, TIMESTAMP_BOOT};
 use poise::serenity_prelude::{
-  CreateAllowedMentions, CreateComponent, CreateContainer, CreateContainerComponent, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateMessage, CreateSection,
-  CreateSectionAccessory, CreateSectionComponent, CreateSeparator, CreateTextDisplay, CreateThumbnail, CreateUnfurledMediaItem, GenericChannelId, Member, Message, MessageFlags,
+  CreateAllowedMentions, CreateComponent, CreateContainer, CreateContainerComponent, CreateEmbed, CreateEmbedAuthor,
+  CreateEmbedFooter, CreateMessage, CreateSection, CreateSectionAccessory, CreateSectionComponent, CreateSeparator,
+  CreateTextDisplay, CreateThumbnail, CreateUnfurledMediaItem, GenericChannelId, Member, Message, MessageFlags,
   Timestamp, User, UserId,
 };
 use poise::CreateReply;
@@ -150,7 +151,11 @@ async fn kick(
 
 /// Warn a member
 #[poise::command(slash_command, guild_only, required_permissions = "MODERATE_MEMBERS")]
-async fn warn(ctx: Context<'_>, #[description = "The member to warn"] member: Member, #[description = "The reason for warning the member"] reason: String) -> Result<(), Error> {
+async fn warn(
+  ctx: Context<'_>,
+  #[description = "The member to warn"] member: Member,
+  #[description = "The reason for warning the member"] reason: String,
+) -> Result<(), Error> {
   let punishment = database::insert_punishment(
     GuildIdWrapper(member.guild_id.get()),
     UserIdWrapper(member.user.id.get()),
@@ -166,7 +171,11 @@ async fn warn(ctx: Context<'_>, #[description = "The member to warn"] member: Me
 
 /// Add a note to a member
 #[poise::command(slash_command, guild_only, required_permissions = "MODERATE_MEMBERS")]
-async fn note(ctx: Context<'_>, #[description = "The member to add a note to"] member: Member, #[description = "The note content"] reason: String) -> Result<(), Error> {
+async fn note(
+  ctx: Context<'_>,
+  #[description = "The member to add a note to"] member: Member,
+  #[description = "The note content"] reason: String,
+) -> Result<(), Error> {
   let punishment = database::insert_punishment(
     GuildIdWrapper(member.guild_id.get()),
     UserIdWrapper(member.user.id.get()),
@@ -220,7 +229,13 @@ async fn kick_context(ctx: poise::ApplicationContext<'_, Data, Error>, msg: Mess
 
 #[poise::command(context_menu_command = "Quick Ban", guild_only, required_permissions = "BAN_MEMBERS")]
 async fn quick_ban_context(ctx: Context<'_>, msg: Message) -> Result<(), Error> {
-  execute_ban(&ctx, &msg.author, true, Some(format!("Quick-banned for sending a message in <#{}>", msg.channel_id))).await?;
+  execute_ban(
+    &ctx,
+    &msg.author,
+    true,
+    Some(format!("Quick-banned for sending a message in <#{}>", msg.channel_id)),
+  )
+  .await?;
   Ok(())
 }
 
@@ -230,14 +245,18 @@ async fn report_context(ctx: Context<'_>, msg: Message) -> Result<(), Error> {
 
   if let Some(channels) = config.guilds.get(&ctx.guild_id().unwrap().to_string()) {
     if let Some(report_channel) = channels.channel_report.clone() {
-      let user_avatar = msg
-        .author
-        .avatar_url()
-        .unwrap_or_else(|| format!("https://cdn.discordapp.com/embed/avatars/{}.png", (msg.author.id.get() >> 22) % 6));
-      let author_avatar = ctx
-        .author()
-        .avatar_url()
-        .unwrap_or_else(|| format!("https://cdn.discordapp.com/embed/avatars/{}.png", (ctx.author().id.get() >> 22) % 6));
+      let user_avatar = msg.author.avatar_url().unwrap_or_else(|| {
+        format!(
+          "https://cdn.discordapp.com/embed/avatars/{}.png",
+          (msg.author.id.get() >> 22) % 6
+        )
+      });
+      let author_avatar = ctx.author().avatar_url().unwrap_or_else(|| {
+        format!(
+          "https://cdn.discordapp.com/embed/avatars/{}.png",
+          (ctx.author().id.get() >> 22) % 6
+        )
+      });
 
       ctx
         .http()
@@ -250,7 +269,9 @@ async fn report_context(ctx: Context<'_>, msg: Message) -> Result<(), Error> {
               .title("A message has been reported")
               .description(format!("**Reported Content**: \n\n{}", msg.content))
               .field("Message", format!("{}", msg.link()), false)
-              .footer(CreateEmbedFooter::new(format!("{} ({})", ctx.author().name, ctx.author().id)).icon_url(author_avatar))
+              .footer(
+                CreateEmbedFooter::new(format!("{} ({})", ctx.author().name, ctx.author().id)).icon_url(author_avatar),
+              )
               .timestamp(Timestamp::now())
               .color(0x38393B),
           ),
@@ -279,15 +300,20 @@ async fn report_context(ctx: Context<'_>, msg: Message) -> Result<(), Error> {
 
 /// Sends a message privately to the moderators
 #[poise::command(slash_command, guild_only)]
-async fn modmail(ctx: Context<'_>, #[description = "The message to send the moderators"] message: String) -> Result<(), Error> {
+async fn modmail(
+  ctx: Context<'_>,
+  #[description = "The message to send the moderators"] message: String,
+) -> Result<(), Error> {
   let config = config::get_config_certain()?;
 
   if let Some(channels) = config.guilds.get(&ctx.guild_id().unwrap().to_string()) {
     if let Some(mod_msg_channel) = channels.channel_mod_msg.clone() {
-      let author_avatar = ctx
-        .author()
-        .avatar_url()
-        .unwrap_or_else(|| format!("https://cdn.discordapp.com/embed/avatars/{}.png", (ctx.author().id.get() >> 22) % 6));
+      let author_avatar = ctx.author().avatar_url().unwrap_or_else(|| {
+        format!(
+          "https://cdn.discordapp.com/embed/avatars/{}.png",
+          (ctx.author().id.get() >> 22) % 6
+        )
+      });
 
       ctx
         .http()
@@ -298,7 +324,9 @@ async fn modmail(ctx: Context<'_>, #[description = "The message to send the mode
             CreateEmbed::new()
               .title("A new modmail message has been submitted")
               .description(message)
-              .footer(CreateEmbedFooter::new(format!("{} ({})", ctx.author().name, ctx.author().id)).icon_url(author_avatar))
+              .footer(
+                CreateEmbedFooter::new(format!("{} ({})", ctx.author().name, ctx.author().id)).icon_url(author_avatar),
+              )
               .timestamp(Timestamp::now())
               .color(0x38393B),
           ),
@@ -340,19 +368,37 @@ async fn punishment(_: Context<'_>) -> Result<(), Error> {
 #[poise::command(slash_command, rename = "reason")]
 async fn punishment_reason(ctx: Context<'_>, #[string] punishment: Uuid, reason: String) -> Result<(), Error> {
   if let Err(e) = database::update_punishment_reason(punishment, reason) {
-    ctx.send(CreateReply::new().content(format!("Something went wrong: {e}")).ephemeral(true)).await?;
+    ctx
+      .send(
+        CreateReply::new()
+          .content(format!("Something went wrong: {e}"))
+          .ephemeral(true),
+      )
+      .await?;
     return Ok(());
   }
 
-  ctx.reply(format!("Punishment `{}` was successfully updated.", punishment.as_simple())).await?;
+  ctx
+    .reply(format!(
+      "Punishment `{}` was successfully updated.",
+      punishment.as_simple()
+    ))
+    .await?;
   Ok(())
 }
 
-async fn construct_show_component(ctx: Context<'_>, punishment: &Punishment) -> Result<CreateComponent<'static>, Error> {
+async fn construct_show_component(
+  ctx: Context<'_>,
+  punishment: &Punishment,
+) -> Result<CreateComponent<'static>, Error> {
   let display = PunishmentDisplay::from_punishment_type(&punishment.punishment_type);
 
   fn bool_to_emoji<'a>(val: bool) -> &'a str {
-    if val { "<:yes:1500220801108934786>" } else { "<:no:1500220802841182211>" }
+    if val {
+      "<:yes:1500220801108934786>"
+    } else {
+      "<:no:1500220802841182211>"
+    }
   }
 
   let issued_by_name = ctx.http().get_user(UserId::new(punishment.issued_by.0)).await?.name;
@@ -378,23 +424,44 @@ async fn construct_show_component(ctx: Context<'_>, punishment: &Punishment) -> 
     "**Issued to**: <@{}> (`@{}` / `{}`)",
     punishment.issued_to.0, issued_to_name, punishment.issued_to.0
   ));
-  fields.push(format!("**Reason**: {}", punishment.reason.clone().unwrap_or_else(|| String::from("*No reason provided*"))));
+  fields.push(format!(
+    "**Reason**: {}",
+    punishment
+      .reason
+      .clone()
+      .unwrap_or_else(|| String::from("*No reason provided*"))
+  ));
 
-  let fields = fields.into_iter().map(|s| CreateContainerComponent::TextDisplay(CreateTextDisplay::new(s)));
+  let fields = fields
+    .into_iter()
+    .map(|s| CreateContainerComponent::TextDisplay(CreateTextDisplay::new(s)));
   let fields: Vec<CreateContainerComponent> = fields.collect();
 
-  Ok(CreateComponent::Container(CreateContainer::new(fields).accent_color(display.color)))
+  Ok(CreateComponent::Container(
+    CreateContainer::new(fields).accent_color(display.color),
+  ))
 }
 
-async fn ensure_valid_punishment(ctx: Context<'_>, punishment: Result<Option<Punishment>, Error>) -> Result<Punishment, Error> {
+async fn ensure_valid_punishment(
+  ctx: Context<'_>,
+  punishment: Result<Option<Punishment>, Error>,
+) -> Result<Punishment, Error> {
   if let Err(e) = punishment {
-    ctx.send(CreateReply::new().content(format!("Something went wrong: {e}")).ephemeral(true)).await?;
+    ctx
+      .send(
+        CreateReply::new()
+          .content(format!("Something went wrong: {e}"))
+          .ephemeral(true),
+      )
+      .await?;
     return Err(e);
   }
   let punishment = punishment?;
 
   if let None = punishment {
-    ctx.send(CreateReply::new().content("No punishment found.").ephemeral(true)).await?;
+    ctx
+      .send(CreateReply::new().content("No punishment found.").ephemeral(true))
+      .await?;
     return Err(Error::from("No punishment."));
   }
 
@@ -404,7 +471,11 @@ async fn ensure_valid_punishment(ctx: Context<'_>, punishment: Result<Option<Pun
 /// Show the details of a punishment
 #[poise::command(slash_command, rename = "show")]
 async fn punishment_show(ctx: Context<'_>, #[string] punishment: Uuid) -> Result<(), Error> {
-  let punishment = ensure_valid_punishment(ctx, database::fetch_single_punishment(punishment, GuildIdWrapper(ctx.guild_id().unwrap().get()))).await;
+  let punishment = ensure_valid_punishment(
+    ctx,
+    database::fetch_single_punishment(punishment, GuildIdWrapper(ctx.guild_id().unwrap().get())),
+  )
+  .await;
   if punishment.is_err() {
     return Ok(());
   }
@@ -426,7 +497,11 @@ async fn punishment_show(ctx: Context<'_>, #[string] punishment: Uuid) -> Result
 /// Mark a punishment as stale
 #[poise::command(slash_command, rename = "stale")]
 async fn punishment_stale(ctx: Context<'_>, #[string] punishment: Uuid, reason: Option<String>) -> Result<(), Error> {
-  let punishment = ensure_valid_punishment(ctx, database::stale_punishment(punishment, GuildIdWrapper(ctx.guild_id().unwrap().get()), reason)).await;
+  let punishment = ensure_valid_punishment(
+    ctx,
+    database::stale_punishment(punishment, GuildIdWrapper(ctx.guild_id().unwrap().get()), reason),
+  )
+  .await;
   if punishment.is_err() {
     return Ok(());
   }
@@ -434,14 +509,22 @@ async fn punishment_stale(ctx: Context<'_>, #[string] punishment: Uuid, reason: 
   let punishment = punishment?;
   match punishment.punishment_type {
     PunishmentType::TIMEOUT => {
-      if let Ok(mut member) = ctx.http().get_member(ctx.guild_id().unwrap(), UserId::new(punishment.issued_to.0)).await {
+      if let Ok(mut member) = ctx
+        .http()
+        .get_member(ctx.guild_id().unwrap(), UserId::new(punishment.issued_to.0))
+        .await
+      {
         member.enable_communication(ctx.http()).await?;
       }
     }
     PunishmentType::BAN => {
       ctx
         .http()
-        .remove_ban(ctx.guild_id().unwrap(), UserId::new(punishment.issued_to.0), Some("Punishment stale."))
+        .remove_ban(
+          ctx.guild_id().unwrap(),
+          UserId::new(punishment.issued_to.0),
+          Some("Punishment stale."),
+        )
         .await?;
     }
     _ => {}
@@ -467,7 +550,12 @@ async fn punishment_stale(ctx: Context<'_>, #[string] punishment: Uuid, reason: 
   Ok(())
 }
 
-#[poise::command(slash_command, rename = "search", subcommands("punishment_search_user"), subcommand_required)]
+#[poise::command(
+  slash_command,
+  rename = "search",
+  subcommands("punishment_search_user"),
+  subcommand_required
+)]
 async fn punishment_search(_: Context<'_>) -> Result<(), Error> {
   Ok(()) // never called
 }
@@ -475,11 +563,17 @@ async fn punishment_search(_: Context<'_>) -> Result<(), Error> {
 /// Search for punishments issued to a user
 #[poise::command(slash_command, rename = "user")]
 async fn punishment_search_user(ctx: Context<'_>, user: User) -> Result<(), Error> {
-  let entries: Vec<PartialPunishment> = database::fetch_punishments(UserIdWrapper(user.id.get()), GuildIdWrapper(ctx.guild_id().unwrap().get()))?;
+  let entries: Vec<PartialPunishment> = database::fetch_punishments(
+    UserIdWrapper(user.id.get()),
+    GuildIdWrapper(ctx.guild_id().unwrap().get()),
+  )?;
 
-  let user_avatar = user
-    .avatar_url()
-    .unwrap_or_else(|| format!("https://cdn.discordapp.com/embed/avatars/{}.png", (user.id.get() >> 22) % 6));
+  let user_avatar = user.avatar_url().unwrap_or_else(|| {
+    format!(
+      "https://cdn.discordapp.com/embed/avatars/{}.png",
+      (user.id.get() >> 22) % 6
+    )
+  });
 
   let top_section = CreateSection::new(
     vec![CreateSectionComponent::TextDisplay(CreateTextDisplay::new(format!(
@@ -495,14 +589,21 @@ async fn punishment_search_user(ctx: Context<'_>, user: User) -> Result<(), Erro
   } else {
     for entry in entries {
       let display = PunishmentDisplay::from_punishment_type(&entry.punishment_type);
-      fields.push(format!("{} (`{}`) <t:{}:F>", display.display, entry.punishment_id.simple(), entry.time_sec));
+      fields.push(format!(
+        "{} (`{}`) <t:{}:F>",
+        display.display,
+        entry.punishment_id.simple(),
+        entry.time_sec
+      ));
       if let Some(reason) = entry.reason {
         fields.push(format!("⟶ `{}`", reason));
       }
     }
   }
 
-  let fields = fields.into_iter().map(|s| CreateContainerComponent::TextDisplay(CreateTextDisplay::new(s)));
+  let fields = fields
+    .into_iter()
+    .map(|s| CreateContainerComponent::TextDisplay(CreateTextDisplay::new(s)));
   let fields: Vec<CreateContainerComponent> = fields.collect();
 
   let mut container_components: Vec<CreateContainerComponent> = Vec::new();
@@ -517,7 +618,9 @@ async fn punishment_search_user(ctx: Context<'_>, user: User) -> Result<(), Erro
       CreateReply::new()
         .flags(MessageFlags::IS_COMPONENTS_V2)
         .allowed_mentions(CreateAllowedMentions::default().empty_roles().empty_users())
-        .components(vec![CreateComponent::Container(CreateContainer::new(container_components))]),
+        .components(vec![CreateComponent::Container(CreateContainer::new(
+          container_components,
+        ))]),
     )
     .await?;
 

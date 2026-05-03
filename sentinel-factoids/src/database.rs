@@ -28,17 +28,20 @@ CREATE TABLE IF NOT EXISTS factoids (
   Ok(())
 }
 
-pub(crate) fn insert_factoid(
-  guild_id: &GuildIdWrapper,
-  factoid: FactoidData
-) -> Result<(), Error> {
+pub(crate) fn insert_factoid(guild_id: &GuildIdWrapper, factoid: FactoidData) -> Result<(), Error> {
   // language=sqlite
   const INSERT: &str =
     "INSERT INTO factoids (guild_id, factoid_name, display_name, description, components) VALUES (?, ?, ?, ?, ?);";
 
   let conn = get_connection()?;
   let mut prepared = conn.prepare(INSERT)?;
-  prepared.insert((guild_id, factoid.factoid_name, factoid.display_name, factoid.description, factoid.components))?;
+  prepared.insert((
+    guild_id,
+    factoid.factoid_name,
+    factoid.display_name,
+    factoid.description,
+    factoid.components,
+  ))?;
   Ok(())
 }
 

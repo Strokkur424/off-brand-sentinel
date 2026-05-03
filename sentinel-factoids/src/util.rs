@@ -29,7 +29,6 @@ pub async fn respond_manually_components(
     flags, components
   );
 
-
   let request = Request::new(route, LightMethod::Post).body(Some(body.clone().into_bytes()));
   // println!("Request body: <{}>", body);
 

@@ -1,6 +1,7 @@
 # Off-brand Sentinel
 
-This is a Discord bot written in **Rust** aiming to recreate the features of [Sentinel](https://github.com/seiama/sentinel),
+This is a Discord bot written in **Rust** aiming to recreate the features
+of [Sentinel](https://github.com/seiama/sentinel),
 a Discord bot on the [PaperMC Discord server](https://discord.gg/papermc).
 
 > [!IMPORTANT]
@@ -10,25 +11,32 @@ a Discord bot on the [PaperMC Discord server](https://discord.gg/papermc).
 
 ## Getting started
 
-First, you need to download the executable appropriate for your OS. The [releases](https://github.com/Strokkur424/off-brand-sentinel/releases/latest)
-tab contains download files for **Linux (x86)**, **Windows (x86)**, and **macOS**. For any other platforms (i.e. Raspberry Pi/Linux ARM), you will
+First, you need to download the executable appropriate for your OS.
+The [releases](https://github.com/Strokkur424/off-brand-sentinel/releases/latest)
+tab contains download files for **Linux (x86)**, **Windows (x86)**, and **macOS**. For any other platforms (i.e.
+Raspberry Pi/Linux ARM), you will
 need to build the source code yourself. Instructions for this can be found under [Building](#building).
 
-Move the executable into its own folder. To run the bot, use the following command (you may need to replace the slash characters `/` with
+Move the executable into its own folder. To run the bot, use the following command (you may need to replace the slash
+characters `/` with
 backslashes `\` on Windows):
 
 ```bash
 ./off-brand-sentinel ./data/
 ```
 
-This will run the bot whilst creating any files in the `data` directory. If you leave out the argument, the current working directory
+This will run the bot whilst creating any files in the `data` directory. If you leave out the argument, the current
+working directory
 will be used instead.
 
-On first run, the bot will startup, generate the files, and shut down again. This is because you **haven't given it a token** yet.
-You can create a new Discord bot [on the Discord developer portal](https://discord.com/developers/applications). You will need two
+On first run, the bot will startup, generate the files, and shut down again. This is because you **haven't given it a
+token** yet.
+You can create a new Discord bot [on the Discord developer portal](https://discord.com/developers/applications). You
+will need two
 create **two applications/bots if you want to use the Factoids feature**, however Factoids is optional.
 
-Create your bot(s). Ensure the only installation method is set to **Guild Install**. The Sentinel bot requires the following permissions:
+Create your bot(s). Ensure the only installation method is set to **Guild Install**. The Sentinel bot requires the
+following permissions:
 
 - `Kick Members`, `Ban Members`, and `Moderate Members`.
 
@@ -37,8 +45,10 @@ When adding it to your guild, ensure that the bot's role is above any other memb
 The Factoids bot does not require any permissions.
 
 Once you have obtained your bot token(s), open `config.toml` and enter into the appropriate fields.
-Lastly, you may want to configure the channels the bot will use for sending modmail/report messages and create appeals. These are technically
-optional, but highly recommended. The modmail/report message channels can be in the same channel, but it is recommended for the appeals
+Lastly, you may want to configure the channels the bot will use for sending modmail/report messages and create appeals.
+These are technically
+optional, but highly recommended. The modmail/report message channels can be in the same channel, but it is recommended
+for the appeals
 channel to have its own channel.
 
 ## Features
@@ -80,9 +90,11 @@ These are accessible when you right-click a user's message `Apps > Sentinel`.
 
 ## Building
 
-In order to compile this project, you need to install Rust. For this, follow the instructions on [this page](https://rust-lang.org/tools/install/).
+In order to compile this project, you need to install Rust. For this, follow the instructions
+on [this page](https://rust-lang.org/tools/install/).
 
 Once Rust is installed, compiling the project is as simple as running the following command:
+
 ```bash
 cargo build --build --locked --manifest-path=sentinel-app/Cargo.toml
 ```

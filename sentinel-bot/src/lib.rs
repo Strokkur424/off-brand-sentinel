@@ -17,7 +17,9 @@ pub(crate) static WORKING_DIRECTORY: OnceLock<String> = OnceLock::new();
 
 pub async fn run(working_dir: Option<String>) -> Result<(), Error> {
   let working_dir = working_dir.unwrap_or("./".to_string());
-  WORKING_DIRECTORY.set(working_dir.clone()).expect("This shouldn't happen (SET WORKING DIR)");
+  WORKING_DIRECTORY
+    .set(working_dir.clone())
+    .expect("This shouldn't happen (SET WORKING DIR)");
 
   config::load_config(working_dir.as_str())?;
   let config = config::get_config_certain()?;
@@ -38,7 +40,10 @@ pub async fn run(working_dir: Option<String>) -> Result<(), Error> {
 }
 
 async fn run_sentinel(token: &String) -> Result<(), Error> {
-  let token = token.as_str().parse().map_err(|_| "Invalid token defined for sentinel.")?;
+  let token = token
+    .as_str()
+    .parse()
+    .map_err(|_| "Invalid token defined for sentinel.")?;
 
   let framework = Framework::builder()
     .options(FrameworkOptions {
@@ -72,7 +77,11 @@ impl EventHandler for SentinelEventHandler {
     match event {
       FullEvent::Ready { data_about_bot: _, .. } => {
         async {
-          if self.has_registered_commands.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok() {
+          if self
+            .has_registered_commands
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .is_ok()
+          {
             match poise::builtins::register_globally(ctx.http(), &commands::get_commands()).await {
               Ok(()) => println!("[Sentinel] Successfully registered commands."),
               Err(error) => println!("[Sentinel] Failed to register commands: {error:?}"),
